@@ -175,7 +175,7 @@ with tab1:
         "Departamento de Santa María",
         "Municipio de Santa María",
         "Municipio de San José",
-        "Localidades del Departamento de Santa María",
+        "Localidades y áreas rurales del Departamento de Santa María",
         "Manzanas del Departamento de Santa María"
     ]
     option_escala_viv_suelo = st.selectbox("Seleccionar una escala", escalas_viv_suelo, key="viv_suelo_escala_select")
@@ -254,8 +254,8 @@ with tab1:
             selected_tile_viv_suelo
         )
 
-    elif option_escala_viv_suelo == "Localidades del Departamento de Santa María":
-        st.subheader("Localidades del Departamento de Santa María")
+    elif option_escala_viv_suelo == "Localidades y áreas rurales del Departamento de Santa María":
+        st.subheader("Localidades y áreas rurales del Departamento de Santa María")
         variables_localidades_sm = gdf_data_vivienda_suelo["localidades"]["LOCALIDAD"].unique()
         localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_viv_suelo")
 
@@ -315,7 +315,7 @@ with tab2:
         "Departamento de Santa María",
         "Municipio de Santa María",
         "Municipio de San José",
-        "Localidades del Departamento de Santa María",
+        "Localidades y áreas rurales del Departamento de Santa María",
         "Manzanas del Departamento de Santa María"
     ]
     option_escala_infraestructuras = st.selectbox("Seleccionar una escala", escalas_infraestructuras, key="infra_escala_select")
@@ -394,8 +394,8 @@ with tab2:
             selected_tile_infra
         )
 
-    elif option_escala_infraestructuras == "Localidades del Departamento de Santa María":
-        st.subheader("Localidades del Departamento de Santa María")
+    elif option_escala_infraestructuras == "Localidades y áreas rurales del Departamento de Santa María":
+        st.subheader("Localidades y áreas rurales del Departamento de Santa María")
         variables_localidades_sm = gdf_data_infraestructuras["localidades"]["LOCALIDAD"].unique()
         localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_infra")
 
