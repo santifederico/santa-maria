@@ -161,6 +161,13 @@ DATA_PATHS_INFRAESTRUCTURAS = {
 }
 gdf_data_infraestructuras = {key: gpd.read_file(path) for key, path in DATA_PATHS_INFRAESTRUCTURAS.items()}
 
+DATA_PATHS_EQUIPAMIENTOS = {
+    "departamento": "data/equipamientos/santa-maria-departamento.geojson",
+    "municipios": "data/equipamientos/santa-maria-municipios.geojson",
+    "localidades": "data/equipamientos/santa-maria-localidades.geojson",
+    "manzanero": "data/equipamientos/santa-maria-manzanero.geojson",
+}
+gdf_data_equipamientos = {key: gpd.read_file(path) for key, path in DATA_PATHS_EQUIPAMIENTOS.items()}
 
 # --- Streamlit UI ---
 st.title("PLATAFORMA DE LA BRÚJULA")
@@ -449,8 +456,144 @@ with tab2:
         )
 
 with tab3:
-    st.header("Equipamientos")
-    st.info("Contenido para Equipamientos...")
+    st.header("Departamento de Santa María")
+
+    escalas_equipamientos = [
+        "Departamento de Santa María",
+        "Municipio de Santa María",
+        "Municipio de San José",
+        "Localidades y áreas rurales del Departamento de Santa María",
+        "Manzanas del Departamento de Santa María"
+    ]
+    option_escala_equipamientos = st.selectbox("Seleccionar una escala", escalas_equipamientos, key="equipa_escala_select")
+
+    # --- Lógica para cada opción de escala (Equipamientos) ---
+    if option_escala_equipamientos == "Departamento de Santa María":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_equipamientos}")
+        with st.container():
+            display_data_and_charts(gdf_data_equipamientos["departamento"])
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_equipamientos["departamento"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_equipa")
+        
+        selected_tile_equipa = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_dep_equipa"
+        )
+        create_folium_map(
+            gdf_data_equipamientos["departamento"], # CORRECTO para la pestaña de Equipamientos
+            selected_variable,
+            9,
+            ["DEPARTAMENTO", "DERECHOS"],
+            ["Departamento:", "Derechos:"],
+            selected_tile_equipa
+        )
+
+    elif option_escala_equipamientos == "Municipio de Santa María":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_equipamientos}")
+        with st.container():
+            display_data_and_charts(gdf_data_equipamientos["municipios"], "MUNICIPIO", "Santa María")
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_equipamientos["municipios"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_equipa")
+        
+        filtered_gdf_municipio_sm = gdf_data_equipamientos["municipios"][gdf_data_equipamientos["municipios"]['MUNICIPIO'] == 'Santa María']
+        
+        selected_tile_equipa = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_sm_mun_equipa"
+        )
+        create_folium_map(
+            filtered_gdf_municipio_sm, # CORREGIDO: Ahora usa el GDF filtrado de equipamientos
+            selected_variable,
+            10, # Zoom ajustado
+            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
+            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
+            selected_tile_equipa
+        )
+
+    elif option_escala_equipamientos == "Municipio de San José":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_equipamientos}")
+        with st.container():
+            display_data_and_charts(gdf_data_equipamientos["municipios"], "MUNICIPIO", "San José")
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_equipamientos["municipios"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_equipa")
+        
+        filtered_gdf_municipio_sj = gdf_data_equipamientos["municipios"][gdf_data_equipamientos["municipios"]['MUNICIPIO'] == 'San José']
+
+        selected_tile_equipa = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_sj_mun_equipa"
+        )
+        create_folium_map(
+            filtered_gdf_municipio_sj, # CORREGIDO: Ahora usa el GDF filtrado de equipamientos
+            selected_variable,
+            10, # Zoom ajustado
+            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
+            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
+            selected_tile_equipa
+        )
+
+    elif option_escala_equipamientos == "Localidades y áreas rurales del Departamento de Santa María":
+        st.subheader("Localidades y áreas rurales del Departamento de Santa María")
+        variables_localidades_sm = gdf_data_equipamientos["localidades"]["LOCALIDAD"].unique()
+        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_equipa")
+
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        with st.container():
+            display_data_and_charts(gdf_data_equipamientos["localidades"], "LOCALIDAD", localidades_sm)
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_equipamientos["localidades"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_equipa")
+        
+        filtered_gdf_localidades_selected = gdf_data_equipamientos["localidades"][gdf_data_equipamientos["localidades"]['LOCALIDAD'] == localidades_sm]
+
+        selected_tile_equipa = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_loc_equipa"
+        )
+        create_folium_map(
+            filtered_gdf_localidades_selected, # CORREGIDO: Ahora usa el GDF filtrado de equipamientos
+            selected_variable,
+            14, # Zoom ajustado
+            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
+            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
+            selected_tile_equipa
+        )
+
+    elif option_escala_equipamientos == "Manzanas del Departamento de Santa María":
+        st.subheader("Manzanas del Departamento de Santa María")
+        variables_manzanero = gdf_data_equipamientos["manzanero"]["MUNICIPIO"].unique()
+        manzanero_municipio = st.selectbox("Seleccionar un Municipio del Departamento de Santa María", options=variables_manzanero, key="man_mun_select_equipa")
+
+        st.subheader(f"Territorialización de los indicadores de la Brújula por manzana del Municipio de {manzanero_municipio}")
+        variables = gdf_data_equipamientos["manzanero"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="man_var_select_equipa")
+        
+        filtered_gdf_manzanero_municipio = gdf_data_equipamientos["manzanero"][gdf_data_equipamientos["manzanero"]['MUNICIPIO'] == manzanero_municipio]
+
+        selected_tile_equipa = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_man_equipa"
+        )
+        create_folium_map(
+            filtered_gdf_manzanero_municipio, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
+            selected_variable,
+            12, # Zoom ajustado
+            ["MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
+            ["Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
+            selected_tile_equipa
+        )
 
 with tab4:
     st.header("Accesibilidad")
