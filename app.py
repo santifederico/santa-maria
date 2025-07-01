@@ -169,6 +169,13 @@ DATA_PATHS_EQUIPAMIENTOS = {
 }
 gdf_data_equipamientos = {key: gpd.read_file(path) for key, path in DATA_PATHS_EQUIPAMIENTOS.items()}
 
+DATA_PATHS_ACCESIBILIDAD = {
+    "departamento": "data/accesibilidad/santa-maria-departamento.geojson",
+    "municipios": "data/accesibilidad/santa-maria-municipios.geojson",
+    "localidades": "data/accesibilidad/santa-maria-localidades.geojson",
+}
+gdf_data_accesibilidad = {key: gpd.read_file(path) for key, path in DATA_PATHS_ACCESIBILIDAD.items()}
+
 DATA_PATHS_DESARROLLO_LOCAL = {
     "departamento": "data/desarrollo-local/santa-maria-departamento.geojson",
     "municipios": "data/desarrollo-local/santa-maria-municipios.geojson",
@@ -604,8 +611,118 @@ with tab3:
         )
 
 with tab4:
-    st.header("Accesibilidad")
-    st.info("Contenido para Accesibilidad...")
+    st.header("Departamento de Santa María")
+
+    escalas_accesibilidad = [
+        "Departamento de Santa María",
+        "Municipio de Santa María",
+        "Municipio de San José",
+        "Localidades y áreas rurales del Departamento de Santa María",
+    ]
+    option_escala_accesibilidad = st.selectbox("Seleccionar una escala", escalas_accesibilidad, key="acces_escala_select")
+
+    # --- Lógica para cada opción de escala (Desarrollo local) ---
+    if option_escala_accesibilidad == "Departamento de Santa María":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_accesibilidad}")
+        with st.container():
+            display_data_and_charts(gdf_data_accesibilidad["departamento"])
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_accesibilidad["departamento"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_acces")
+        
+        selected_tile_acces = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_dep_acces"
+        )
+        create_folium_map(
+            gdf_data_accesibilidad["departamento"], # CORRECTO para la pestaña de desarrollo local
+            selected_variable,
+            9,
+            ["DEPARTAMENTO", "DERECHOS"],
+            ["Departamento:", "Derechos:"],
+            selected_tile_acces
+        )
+
+    elif option_escala_accesibilidad == "Municipio de Santa María":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_accesibilidad}")
+        with st.container():
+            display_data_and_charts(gdf_data_accesibilidad["municipios"], "MUNICIPIO", "Santa María")
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_accesibilidad["municipios"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_acces")
+        
+        filtered_gdf_municipio_sm = gdf_data_accesibilidad["municipios"][gdf_data_accesibilidad["municipios"]['MUNICIPIO'] == 'Santa María']
+        
+        selected_tile_acces = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_sm_mun_acces"
+        )
+        create_folium_map(
+            filtered_gdf_municipio_sm, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
+            selected_variable,
+            10, # Zoom ajustado
+            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
+            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
+            selected_tile_acces
+        )
+
+    elif option_escala_accesibilidad == "Municipio de San José":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_accesibilidad}")
+        with st.container():
+            display_data_and_charts(gdf_data_accesibilidad["municipios"], "MUNICIPIO", "San José")
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_accesibilidad["municipios"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_acces")
+        
+        filtered_gdf_municipio_sj = gdf_data_accesibilidad["municipios"][gdf_data_accesibilidad["municipios"]['MUNICIPIO'] == 'San José']
+
+        selected_tile_acces = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_sj_mun_acces"
+        )
+        create_folium_map(
+            filtered_gdf_municipio_sj, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
+            selected_variable,
+            10, # Zoom ajustado
+            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
+            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
+            selected_tile_acces
+        )
+
+    elif option_escala_accesibilidad == "Localidades y áreas rurales del Departamento de Santa María":
+        st.subheader("Localidades y áreas rurales del Departamento de Santa María")
+        variables_localidades_sm = gdf_data_accesibilidad["localidades"]["LOCALIDAD"].unique()
+        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_acces")
+
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        with st.container():
+            display_data_and_charts(gdf_data_accesibilidad["localidades"], "LOCALIDAD", localidades_sm)
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variables = gdf_data_accesibilidad["localidades"]["VARIABLE"].unique()
+        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_acces")
+        
+        filtered_gdf_localidades_selected = gdf_data_accesibilidad["localidades"][gdf_data_accesibilidad["localidades"]['LOCALIDAD'] == localidades_sm]
+
+        selected_tile_acces = st.selectbox(
+            "Seleccionar mapa base",
+            list(TILE_OPTIONS.keys()),
+            key="tile_select_loc_acces"
+        )
+        create_folium_map(
+            filtered_gdf_localidades_selected, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
+            selected_variable,
+            14, # Zoom ajustado
+            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
+            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
+            selected_tile_acces
+        )
 
 with tab5:
     st.header("Departamento de Santa María")
