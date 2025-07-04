@@ -54,19 +54,27 @@ def color_map(valor):
     colores = ["#ffffff", "#cce5ff", "#99ccff", "#3399ff", "#004c99"]
     return colores[int(valor)] if valor in range(5) else "#ffffff"
 
-def create_folium_map(gdf, selected_variable, zoom_start, tooltip_fields, tooltip_aliases, selected_tile_name):
-    """Crea y muestra un mapa de Folium."""
+def create_folium_map(gdf, selected_variable, zoom_start, tooltip_fields, tooltip_aliases):
+    """Crea y muestra un mapa de Folium.
+    """
     filtered_gdf = gdf[gdf["VARIABLE"] == selected_variable]
+
     if not filtered_gdf.empty:
-        # Si filtered_gdf tiene geometría, usar su centroide
         centro = filtered_gdf.geometry.union_all().centroid
     else:
-        # Fallback si filtered_gdf está vacío, usar el centroide del gdf original o un valor predeterminado
-        centro = gdf.geometry.union_all().centroid if not gdf.empty else ( -26.779, -66.027) # Coordenadas predeterminadas
+        if not gdf.empty:
+            try:
+                centro = gdf.geometry.union_all().centroid
+            except Exception:
+                centro = (-26.779, -66.027)
+        else:
+            centro = (-26.779, -66.027)
 
-    m = folium.Map(location=[centro.y, centro.x], zoom_start=zoom_start, tiles=None) # tiles=None para agregar el seleccionado después
 
-    # Agregar el TileLayer seleccionado por el usuario
+    selected_tile_name = st.session_state.get('current_tile_selection', 'Fondo Mapa')
+
+    m = folium.Map(location=[centro.y, centro.x], zoom_start=zoom_start, tiles=None)
+
     tile_info = TILE_OPTIONS.get(selected_tile_name)
     if tile_info:
         if tile_info["type"] == "builtin":
@@ -95,41 +103,91 @@ def create_folium_map(gdf, selected_variable, zoom_start, tooltip_fields, toolti
         }
     ).add_to(m)
 
-    # La línea folium.LayerControl ha sido eliminada para quitar las leyendas internas
     html(m._repr_html_(), height=600)
 
-def display_data_and_charts(gdf_data, filter_col=None, filter_value=None, category_col=None):
-    """Muestra la tabla de datos y el gráfico de radar."""
-    df_display = gdf_data.drop(["geometry"], axis=1)
-    if filter_col and filter_value:
-        df_display = df_display[df_display[filter_col] == filter_value].copy() # Use .copy() to avoid SettingWithCopyWarning
-        # Asegúrate de que las columnas 'VARIABLE' y 'DERECHOS' existan después del filtrado
-        if not all(col in df_display.columns for col in ["VARIABLE", "DERECHOS"]):
-            st.warning(f"Las columnas 'VARIABLE' o 'DERECHOS' no se encontraron en los datos filtrados para {filter_col}={filter_value}.")
-            df_chart_data = pd.DataFrame(columns=["VARIABLE", "DERECHOS"]) # DataFrame vacío para evitar errores
+def display_data_and_charts(gdf_data, filter_col=None, filter_value=None, category_cols=None, value_col="DERECHOS"):
+    """Muestra la tabla de datos y el gráfico de radar.
+    
+    category_cols: Lista de nombres de columnas a usar como categorías para el gráfico de radar.
+                   Si es None, se usará 'VARIABLE'.
+    value_col: Nombre de la columna que contiene los valores para el gráfico de radar.
+    """
+    
+    # Define mapping for display names (used for both radar chart categories and table labels)
+    variable_display_names = {
+        "a1-d": "Seguridad en la tenencia del suelo",
+        "a2-d": "Sin hacinamiento en la vivienda",
+        "a3-d": "Vivienda construida con materiales permanentes",
+        "a4-d": "Vivienda con baño propio",
+        "a5-d": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "b1-d":"Provisión de agua potable disponible",
+        "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
+        "b3-d":"Disponibilidad de drenajes que eviten inundación",
+        "b4-d":"Conexión de energía (electricidad y gas)",
+        "b5-d":"Conexión servicios de telecomunicaciones, Internet, etc.",
+        "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+        "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+        "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+        "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+        "c5-d":"Servicios de alumbrado, barrido y limpieza disponibles",
+        "d1-d":"Calzadas disponibles permitiendo movimiento vehicular",
+        "d2-d":"Aceras disponibles permitiendo circulación peatonal y ciclística con seguridad vial, iluminadas y limpias",
+        "d3-d":"Servicio transporte público guiado disponible a precios accesibles",
+        "d4-d":"Servicios de colectivos, taxis y motos disponibles",
+        "d5-d":"Posibilidad de acceso de ambulancias, bomberos, policía y defensa civil",
+        "e1-d":"Seguridad alimentaria disponible",
+        "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
+        "e3-d":"Capacidad de ahorro y re-inversión en mejoras de la vivienda y el barrio",
+        "e4-d":"Tolerancia y aceptación entre grupos sociales diferentes",
+        "e5-d":"Acciones de prevención y reducción de riesgos de contaminación y desastres vigentes",
+    }
+
+    if category_cols:
+        # Melt the DataFrame for the radar chart and table display
+        df_melted = gdf_data.drop("geometry", axis=1, errors='ignore').melt(
+            id_vars=[col for col in gdf_data.columns if col not in category_cols and col != "geometry"],
+            value_vars=category_cols,
+            var_name='VARIABLE',
+            value_name=value_col
+        )
+        
+        # Apply friendly names to the 'VARIABLE' column for both chart and table
+        df_chart_data = df_melted.copy()
+        df_chart_data['VARIABLE'] = df_chart_data['VARIABLE'].map(variable_display_names)
+        
+        df_display_for_table = df_chart_data.copy() # Use the same named data for table
+
+    else: # For other scales where 'VARIABLE' and 'DERECHOS' are already present
+        df_display_for_table = gdf_data.drop("geometry", axis=1, errors='ignore').copy()
+        if not all(col in df_display_for_table.columns for col in ["VARIABLE", value_col]):
+            st.warning(f"Las columnas 'VARIABLE' o '{value_col}' no se encontraron en los datos.")
+            df_chart_data = pd.DataFrame(columns=["VARIABLE", value_col])
         else:
-            df_chart_data = df_display[["VARIABLE", "DERECHOS"]]
-    else:
-        if not all(col in df_display.columns for col in ["VARIABLE", "DERECHOS"]):
-            st.warning("Las columnas 'VARIABLE' o 'DERECHOS' no se encontraron en los datos.")
-            df_chart_data = pd.DataFrame(columns=["VARIABLE", "DERECHOS"]) # DataFrame vacío para evitar errores
-        else:
-            df_chart_data = df_display[["VARIABLE", "DERECHOS"]].copy() # Use .copy()
+            df_chart_data = df_display_for_table[["VARIABLE", value_col]].copy()
+
 
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("Matriz de la Brújula")
-        if not df_chart_data.empty:
+        if not df_display_for_table.empty:
+            # Determine which columns to display in the table
+            # If 'DEPARTAMENTO' is present in the melted data's id_vars, include it.
+            # For the department level, 'DEPARTAMENTO' would be an id_var.
+            columns_to_display = []
+            if 'DEPARTAMENTO' in df_display_for_table.columns:
+                columns_to_display.append('DEPARTAMENTO')
+            columns_to_display.extend(["VARIABLE", value_col])
+
             st.markdown(
-                df_chart_data.style.hide(axis='index').to_html(),
+                df_display_for_table[columns_to_display].style.hide(axis='index').to_html(),
                 unsafe_allow_html=True
             )
         else:
             st.info("No hay datos para mostrar en la matriz para esta selección.")
     with col2:
         st.markdown("Gráfico de la Brújula")
-        if not df_chart_data.empty:
-            plot_radar_chart(df_chart_data, "VARIABLE", "DERECHOS")
+        if not df_chart_data.empty and "VARIABLE" in df_chart_data.columns and value_col in df_chart_data.columns:
+            plot_radar_chart(df_chart_data, "VARIABLE", value_col)
         else:
             st.warning("No hay datos para generar el gráfico de radar.")
 
@@ -143,46 +201,11 @@ TILE_OPTIONS = {
     "Fondo Mapa": {"url_or_name": "OpenStreetMap", "type": "builtin"}
 }
 
-
 # --- Carga de Datos ---
-DATA_PATHS_VIVIENDA_SUELO = {
-    "departamento": "data/vivienda-suelo/santa-maria-departamento.geojson",
-    "municipios": "data/vivienda-suelo/santa-maria-municipios.geojson",
-    "localidades": "data/vivienda-suelo/santa-maria-localidades.geojson",
-    "manzanero": "data/vivienda-suelo/santa-maria-manzanero.geojson",
-}
-gdf_data_vivienda_suelo = {key: gpd.read_file(path) for key, path in DATA_PATHS_VIVIENDA_SUELO.items()}
-
-DATA_PATHS_INFRAESTRUCTURAS = {
-    "departamento": "data/infraestructuras/santa-maria-departamento.geojson",
-    "municipios": "data/infraestructuras/santa-maria-municipios.geojson",
-    "localidades": "data/infraestructuras/santa-maria-localidades.geojson",
-    "manzanero": "data/infraestructuras/santa-maria-manzanero.geojson",
-}
-gdf_data_infraestructuras = {key: gpd.read_file(path) for key, path in DATA_PATHS_INFRAESTRUCTURAS.items()}
-
-DATA_PATHS_EQUIPAMIENTOS = {
-    "departamento": "data/equipamientos/santa-maria-departamento.geojson",
-    "municipios": "data/equipamientos/santa-maria-municipios.geojson",
-    "localidades": "data/equipamientos/santa-maria-localidades.geojson",
-    "manzanero": "data/equipamientos/santa-maria-manzanero.geojson",
-}
-gdf_data_equipamientos = {key: gpd.read_file(path) for key, path in DATA_PATHS_EQUIPAMIENTOS.items()}
-
-DATA_PATHS_ACCESIBILIDAD = {
-    "departamento": "data/accesibilidad/santa-maria-departamento.geojson",
-    "municipios": "data/accesibilidad/santa-maria-municipios.geojson",
-    "localidades": "data/accesibilidad/santa-maria-localidades.geojson",
-}
-gdf_data_accesibilidad = {key: gpd.read_file(path) for key, path in DATA_PATHS_ACCESIBILIDAD.items()}
-
-DATA_PATHS_DESARROLLO_LOCAL = {
-    "departamento": "data/desarrollo-local/santa-maria-departamento.geojson",
-    "municipios": "data/desarrollo-local/santa-maria-municipios.geojson",
-    "localidades": "data/desarrollo-local/santa-maria-localidades.geojson",
-    "manzanero": "data/desarrollo-local/santa-maria-manzanero.geojson",
-}
-gdf_data_desarrollo_local = {key: gpd.read_file(path) for key, path in DATA_PATHS_DESARROLLO_LOCAL.items()}
+gdf_data_departamento_consolidado_full = gpd.read_file("data/santa-maria-departamento.geojson")
+gdf_data_municipios_consolidado_full = gpd.read_file("data/santa-maria-municipios.geojson")
+gdf_data_localidades_consolidado_full = gpd.read_file("data/santa-maria-localidades.geojson")
+gdf_data_manzanero_consolidado_full = gpd.read_file("data/santa-maria-manzanero.geojson")
 
 # --- Streamlit UI ---
 st.title("PLATAFORMA DE LA BRÚJULA")
@@ -205,130 +228,280 @@ with tab1:
     # --- Lógica para cada opción de escala (Vivienda y Suelo) ---
     if option_escala_viv_suelo == "Departamento de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_viv_suelo}")
+        
+        department_vars_viv_suelo = ["a1-d", "a2-d", "a3-d", "a4-d", "a5-d"]
+        
+        gdf_department_filtered_for_tab1 = gdf_data_departamento_consolidado_full[
+            gdf_data_departamento_consolidado_full["DEPARTAMENTO"] == "Santa María"
+        ][["DEPARTAMENTO", "geometry"] + department_vars_viv_suelo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_vivienda_suelo["departamento"])
+            display_data_and_charts(
+                gdf_department_filtered_for_tab1,
+                category_cols=department_vars_viv_suelo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_vivienda_suelo["departamento"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_viv_suelo")
+        variable_map_for_display = {
+            "a1-d": "Seguridad en la tenencia del suelo",
+            "a2-d": "Sin hacinamiento en la vivienda",
+            "a3-d": "Vivienda construida con materiales permanentes",
+            "a4-d": "Vivienda con baño propio",
+            "a5-d": "Generación de oferta de vivienda y alquiler a precios accesibles"
+        }
         
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_viv_suelo"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_department_filtered_for_tab1.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
         selected_tile_viv_suelo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
             key="tile_select_dep_viv_suelo"
         )
+        st.session_state['current_tile_selection'] = selected_tile_viv_suelo 
+
         create_folium_map(
-            gdf_data_vivienda_suelo["departamento"],
-            selected_variable,
+            gdf_map_data,
+            selected_display_name,
             9,
             ["DEPARTAMENTO", "DERECHOS"],
-            ["Departamento:", "Derechos:"],
-            selected_tile_viv_suelo
+            ["Departamento:", f"{selected_display_name}:"]
         )
 
     elif option_escala_viv_suelo == "Municipio de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_viv_suelo}")
+        
+        municipio_sm_vars_viv_suelo = ["a1-d", "a2-d", "a3-d", "a4-d", "a5-d"]
+        
+        gdf_municipio_sm_filtered_for_tab1 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "Santa María"
+        ][["MUNICIPIO", "geometry"] + municipio_sm_vars_viv_suelo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_vivienda_suelo["municipios"], "MUNICIPIO", "Santa María")
+            display_data_and_charts(
+                gdf_municipio_sm_filtered_for_tab1,
+                category_cols=municipio_sm_vars_viv_suelo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_vivienda_suelo["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_viv_suelo")
+        variable_map_for_display = {
+            "a1-d": "Seguridad en la tenencia del suelo",
+            "a2-d": "Sin hacinamiento en la vivienda",
+            "a3-d": "Vivienda construida con materiales permanentes",
+            "a4-d": "Vivienda con baño propio",
+            "a5-d": "Generación de oferta de vivienda y alquiler a precios accesibles"
+        }
         
-        filtered_gdf_municipio_sm = gdf_data_vivienda_suelo["municipios"][gdf_data_vivienda_suelo["municipios"]['MUNICIPIO'] == 'Santa María']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_viv_suelo"
+        )
         
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sm_filtered_for_tab1.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
         selected_tile_viv_suelo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sm_mun_viv_suelo"
+            key="tile_select_dep_viv_suelo"
         )
-        create_folium_map(
-            filtered_gdf_municipio_sm, # CORRECTO
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_viv_suelo
-        )
+        st.session_state['current_tile_selection'] = selected_tile_viv_suelo 
 
+        create_folium_map(
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
+        )
+    
     elif option_escala_viv_suelo == "Municipio de San José":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_viv_suelo}")
+        
+        municipio_sj_vars_viv_suelo = ["a1-d", "a2-d", "a3-d", "a4-d", "a5-d"]
+        
+        gdf_municipio_sj_filtered_for_tab1 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "San José"
+        ][["MUNICIPIO", "geometry"] + municipio_sj_vars_viv_suelo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_vivienda_suelo["municipios"], "MUNICIPIO", "San José")
+            display_data_and_charts(
+                gdf_municipio_sj_filtered_for_tab1,
+                category_cols=municipio_sj_vars_viv_suelo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_vivienda_suelo["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_viv_suelo")
+        variable_map_for_display = {
+            "a1-d": "Seguridad en la tenencia del suelo",
+            "a2-d": "Sin hacinamiento en la vivienda",
+            "a3-d": "Vivienda construida con materiales permanentes",
+            "a4-d": "Vivienda con baño propio",
+            "a5-d": "Generación de oferta de vivienda y alquiler a precios accesibles"
+        }
         
-        filtered_gdf_municipio_sj = gdf_data_vivienda_suelo["municipios"][gdf_data_vivienda_suelo["municipios"]['MUNICIPIO'] == 'San José']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_viv_suelo"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sj_filtered_for_tab1.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
         selected_tile_viv_suelo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sj_mun_viv_suelo"
+            key="tile_select_dep_viv_suelo"
         )
+        st.session_state['current_tile_selection'] = selected_tile_viv_suelo 
+
         create_folium_map(
-            filtered_gdf_municipio_sj, # CORRECTO
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_viv_suelo
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
         )
 
     elif option_escala_viv_suelo == "Localidades y áreas rurales del Departamento de Santa María":
         st.subheader("Localidades y áreas rurales del Departamento de Santa María")
-        variables_localidades_sm = gdf_data_vivienda_suelo["localidades"]["LOCALIDAD"].unique()
-        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_viv_suelo")
+        localidades_disponibles = gdf_data_localidades_consolidado_full["LOCALIDAD"].unique().tolist()
+        
+        # Permitir al usuario seleccionar una localidad
+        selected_localidad = st.selectbox(
+            "Selecciona una Localidad", 
+            options=localidades_disponibles, 
+            key="localidad_select_viv_suelo"
+        )
 
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        localidad_vars_viv_suelo = ["a1-d", "a2-d", "a3-d", "a4-d", "a5-d"]
+
+        gdf_localidad_filtered_for_tab1 = gdf_data_localidades_consolidado_full[
+            gdf_data_localidades_consolidado_full["LOCALIDAD"] == selected_localidad
+        ][["LOCALIDAD", "geometry"] + localidad_vars_viv_suelo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_vivienda_suelo["localidades"], "LOCALIDAD", localidades_sm)
+            display_data_and_charts(
+                gdf_localidad_filtered_for_tab1,
+                category_cols=localidad_vars_viv_suelo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_vivienda_suelo["localidades"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_viv_suelo")
-        
-        filtered_gdf_localidades_selected = gdf_data_vivienda_suelo["localidades"][gdf_data_vivienda_suelo["localidades"]['LOCALIDAD'] == localidades_sm]
+        variable_map_for_display = {
+            "a1-d": "Seguridad en la tenencia del suelo",
+            "a2-d": "Sin hacinamiento en la vivienda",
+            "a3-d": "Vivienda construida con materiales permanentes",
+            "a4-d": "Vivienda con baño propio",
+            "a5-d": "Generación de oferta de vivienda y alquiler a precios accesibles"
+        }
+
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_viv_suelo_localidad" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_localidad_filtered_for_tab1.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
         selected_tile_viv_suelo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_loc_viv_suelo"
+            key="tile_select_dep_viv_suelo_localidad" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_viv_suelo
+
         create_folium_map(
-            filtered_gdf_localidades_selected, # CORRECTO
-            selected_variable,
-            14, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_viv_suelo
+            gdf_map_data,
+            selected_display_name,
+            12, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
 
     elif option_escala_viv_suelo == "Manzanas del Departamento de Santa María":
         st.subheader("Manzanas del Departamento de Santa María")
-        variables_manzanero = gdf_data_vivienda_suelo["manzanero"]["MUNICIPIO"].unique()
-        manzanero_municipio = st.selectbox("Seleccionar un Municipio del Departamento de Santa María", options=variables_manzanero, key="man_mun_select_viv_suelo")
-
-        st.subheader(f"Territorialización de los indicadores de la Brújula por manzana del Municipio de {manzanero_municipio}")
-        variables = gdf_data_vivienda_suelo["manzanero"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="man_var_select_viv_suelo")
+        manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
         
-        filtered_gdf_manzanero_municipio = gdf_data_vivienda_suelo["manzanero"][gdf_data_vivienda_suelo["manzanero"]['MUNICIPIO'] == manzanero_municipio]
+        # Permitir al usuario seleccionar una localidad
+        selected_manzanero = st.selectbox(
+            "Selecciona una Localidad", 
+            options=manzanero_disponibles, 
+            key="manzanero_select_viv_suelo"
+        )
+
+        manzanero_vars_viv_suelo = ["a1-d", "a2-d", "a3-d", "a4-d", "a5-d"]
+
+        gdf_manzanero_filtered_for_tab1 = gdf_data_manzanero_consolidado_full[
+            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
+        ][["LOCALIDAD", "geometry"] + manzanero_vars_viv_suelo].copy()
+
+        #with st.container():
+        #    display_data_and_charts(
+        #        gdf_manzanero_filtered_for_tab1,
+        #        category_cols=manzanero_vars_viv_suelo,
+        #        value_col="DERECHOS"
+        #    )
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variable_map_for_display = {
+            "a1-d": "Seguridad en la tenencia del suelo",
+            "a2-d": "Sin hacinamiento en la vivienda",
+            "a3-d": "Vivienda construida con materiales permanentes",
+            "a4-d": "Vivienda con baño propio",
+            "a5-d": "Generación de oferta de vivienda y alquiler a precios accesibles"
+        }
+
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_viv_suelo_manzanero" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_manzanero_filtered_for_tab1.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
         selected_tile_viv_suelo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_man_viv_suelo"
+            key="tile_select_dep_viv_suelo_manzanero" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_viv_suelo
+
         create_folium_map(
-            filtered_gdf_manzanero_municipio, # CORRECTO
-            selected_variable,
-            12, # Zoom ajustado
-            ["MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_viv_suelo
+            gdf_map_data,
+            selected_display_name,
+            9, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
+
 
 with tab2:
     st.header("Departamento de Santa María")
@@ -340,134 +513,283 @@ with tab2:
         "Localidades y áreas rurales del Departamento de Santa María",
         "Manzanas del Departamento de Santa María"
     ]
-    option_escala_infraestructuras = st.selectbox("Seleccionar una escala", escalas_infraestructuras, key="infra_escala_select")
+    option_escala_infraestructuras = st.selectbox("Seleccionar una escala", escalas_infraestructuras, key="infraestructuras_escala_select")
 
-    # --- Lógica para cada opción de escala (Infraestructuras) ---
+    # --- Lógica para cada opción de escala (Vivienda y Suelo) ---
     if option_escala_infraestructuras == "Departamento de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_infraestructuras}")
+        
+        department_vars_infraestructuras = ["b1-d", "b2-d", "b4-d", "b5-d"]
+        
+        gdf_department_filtered_for_tab2 = gdf_data_departamento_consolidado_full[
+            gdf_data_departamento_consolidado_full["DEPARTAMENTO"] == "Santa María"
+        ][["DEPARTAMENTO", "geometry"] + department_vars_infraestructuras].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_infraestructuras["departamento"])
+            display_data_and_charts(
+                gdf_department_filtered_for_tab2,
+                category_cols=department_vars_infraestructuras,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_infraestructuras["departamento"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_infra")
+        variable_map_for_display = {
+            "b1-d":"Provisión de agua potable disponible",
+            "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
+            #"b3-d":"Disponibilidad de drenajes que eviten inundación",
+            "b4-d":"Conexión de energía (electricidad y gas)",
+            "b5-d":"Conexión servicios de telecomunicaciones, Internet, etc."
+        }
         
-        selected_tile_infra = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_infraestructuras"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_department_filtered_for_tab2.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_infraestructuras = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_dep_infra"
+            key="tile_select_dep_infraestructuras"
         )
+        st.session_state['current_tile_selection'] = selected_tile_infraestructuras 
+
         create_folium_map(
-            gdf_data_infraestructuras["departamento"], # CORRECTO para la pestaña de Infraestructuras
-            selected_variable,
+            gdf_map_data,
+            selected_display_name,
             9,
             ["DEPARTAMENTO", "DERECHOS"],
-            ["Departamento:", "Derechos:"],
-            selected_tile_infra
+            ["Departamento:", f"{selected_display_name}:"]
         )
 
     elif option_escala_infraestructuras == "Municipio de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_infraestructuras}")
+        
+        municipio_sm_vars_infraestructuras = ["b1-d", "b2-d", "b4-d", "b5-d"]
+        
+        gdf_municipio_sm_filtered_for_tab2 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "Santa María"
+        ][["MUNICIPIO", "geometry"] + municipio_sm_vars_infraestructuras].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_infraestructuras["municipios"], "MUNICIPIO", "Santa María")
+            display_data_and_charts(
+                gdf_municipio_sm_filtered_for_tab2,
+                category_cols=municipio_sm_vars_infraestructuras,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_infraestructuras["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_infra")
+        variable_map_for_display = {
+            "b1-d":"Provisión de agua potable disponible",
+            "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
+            #"b3-d":"Disponibilidad de drenajes que eviten inundación",
+            "b4-d":"Conexión de energía (electricidad y gas)",
+            "b5-d":"Conexión servicios de telecomunicaciones, Internet, etc."
+        }
         
-        filtered_gdf_municipio_sm = gdf_data_infraestructuras["municipios"][gdf_data_infraestructuras["municipios"]['MUNICIPIO'] == 'Santa María']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_infraestructuras"
+        )
         
-        selected_tile_infra = st.selectbox(
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sm_filtered_for_tab2.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_infraestructuras = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sm_mun_infra"
+            key="tile_select_dep_infraestructuras"
         )
-        create_folium_map(
-            filtered_gdf_municipio_sm, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_infra
-        )
+        st.session_state['current_tile_selection'] = selected_tile_infraestructuras 
 
+        create_folium_map(
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
+        )
+    
     elif option_escala_infraestructuras == "Municipio de San José":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_infraestructuras}")
+        
+        municipio_sj_vars_infraestructuras = ["b1-d", "b2-d", "b4-d", "b5-d"]
+        
+        gdf_municipio_sj_filtered_for_tab2 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "San José"
+        ][["MUNICIPIO", "geometry"] + municipio_sj_vars_infraestructuras].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_infraestructuras["municipios"], "MUNICIPIO", "San José")
+            display_data_and_charts(
+                gdf_municipio_sj_filtered_for_tab2,
+                category_cols=municipio_sj_vars_infraestructuras,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_infraestructuras["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_infra")
+        variable_map_for_display = {
+            "b1-d":"Provisión de agua potable disponible",
+            "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
+            #"b3-d":"Disponibilidad de drenajes que eviten inundación",
+            "b4-d":"Conexión de energía (electricidad y gas)",
+            "b5-d":"Conexión servicios de telecomunicaciones, Internet, etc."
+        }
         
-        filtered_gdf_municipio_sj = gdf_data_infraestructuras["municipios"][gdf_data_infraestructuras["municipios"]['MUNICIPIO'] == 'San José']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_infraestructuras"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sj_filtered_for_tab2.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
-        selected_tile_infra = st.selectbox(
+        selected_tile_infraestructuras = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sj_mun_infra"
+            key="tile_select_dep_infraestructuras"
         )
-        create_folium_map(
-            filtered_gdf_municipio_sj, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_infra
-        )
+        st.session_state['current_tile_selection'] = selected_tile_infraestructuras 
 
+        create_folium_map(
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
+        )
+    
     elif option_escala_infraestructuras == "Localidades y áreas rurales del Departamento de Santa María":
         st.subheader("Localidades y áreas rurales del Departamento de Santa María")
-        variables_localidades_sm = gdf_data_infraestructuras["localidades"]["LOCALIDAD"].unique()
-        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_infra")
+        localidades_disponibles = gdf_data_localidades_consolidado_full["LOCALIDAD"].unique().tolist()
+        
+        # Permitir al usuario seleccionar una localidad
+        selected_localidad = st.selectbox(
+            "Selecciona una Localidad", 
+            options=localidades_disponibles, 
+            key="localidad_select_infraestructuras"
+        )
 
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        localidad_vars_infraestructuras = ["b1-d", "b2-d", "b4-d", "b5-d"]
+
+        gdf_localidad_filtered_for_tab2 = gdf_data_localidades_consolidado_full[
+            gdf_data_localidades_consolidado_full["LOCALIDAD"] == selected_localidad
+        ][["LOCALIDAD", "geometry"] + localidad_vars_infraestructuras].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_infraestructuras["localidades"], "LOCALIDAD", localidades_sm)
+            display_data_and_charts(
+                gdf_localidad_filtered_for_tab2,
+                category_cols=localidad_vars_infraestructuras,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_infraestructuras["localidades"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_infra")
-        
-        filtered_gdf_localidades_selected = gdf_data_infraestructuras["localidades"][gdf_data_infraestructuras["localidades"]['LOCALIDAD'] == localidades_sm]
+        variable_map_for_display = {
+            "b1-d":"Provisión de agua potable disponible",
+            "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
+            #"b3-d":"Disponibilidad de drenajes que eviten inundación",
+            "b4-d":"Conexión de energía (electricidad y gas)",
+            "b5-d":"Conexión servicios de telecomunicaciones, Internet, etc."
+        }
 
-        selected_tile_infra = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_infraestructuras_localidad" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_localidad_filtered_for_tab2.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_infraestructuras = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_loc_infra"
+            key="tile_select_dep_infraestructuras_localidad" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_infraestructuras
+
         create_folium_map(
-            filtered_gdf_localidades_selected, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
-            selected_variable,
-            14, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_infra
+            gdf_map_data,
+            selected_display_name,
+            12, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
 
     elif option_escala_infraestructuras == "Manzanas del Departamento de Santa María":
         st.subheader("Manzanas del Departamento de Santa María")
-        variables_manzanero = gdf_data_infraestructuras["manzanero"]["MUNICIPIO"].unique()
-        manzanero_municipio = st.selectbox("Seleccionar un Municipio del Departamento de Santa María", options=variables_manzanero, key="man_mun_select_infra")
-
-        st.subheader(f"Territorialización de los indicadores de la Brújula por manzana del Municipio de {manzanero_municipio}")
-        variables = gdf_data_infraestructuras["manzanero"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="man_var_select_infra")
+        manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
         
-        filtered_gdf_manzanero_municipio = gdf_data_infraestructuras["manzanero"][gdf_data_infraestructuras["manzanero"]['MUNICIPIO'] == manzanero_municipio]
+        # Permitir al usuario seleccionar una localidad
+        selected_manzanero = st.selectbox(
+            "Selecciona una Localidad", 
+            options=manzanero_disponibles, 
+            key="manzanero_select_infraestructuras"
+        )
 
-        selected_tile_infra = st.selectbox(
+        manzanero_vars_infraestructuras = ["b1-d", "b2-d", "b4-d", "b5-d"]
+
+        gdf_manzanero_filtered_for_tab2 = gdf_data_manzanero_consolidado_full[
+            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
+        ][["LOCALIDAD", "geometry"] + manzanero_vars_infraestructuras].copy()
+
+        #with st.container():
+        #    display_data_and_charts(
+        #        gdf_manzanero_filtered_for_tab2,
+        #        category_cols=manzanero_vars_infraestructuras,
+        #        value_col="DERECHOS"
+        #    )
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variable_map_for_display = {
+            "b1-d":"Provisión de agua potable disponible",
+            "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
+            #"b3-d":"Disponibilidad de drenajes que eviten inundación",
+            "b4-d":"Conexión de energía (electricidad y gas)",
+            "b5-d":"Conexión servicios de telecomunicaciones, Internet, etc."
+        }
+
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_infraestructuras_manzanero" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_manzanero_filtered_for_tab2.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_infraestructuras = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_man_infra"
+            key="tile_select_dep_infraestructuras_manzanero" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_infraestructuras
+
         create_folium_map(
-            filtered_gdf_manzanero_municipio, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
-            selected_variable,
-            12, # Zoom ajustado
-            ["MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_infra
+            gdf_map_data,
+            selected_display_name,
+            9, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
 
 with tab3:
@@ -480,135 +802,285 @@ with tab3:
         "Localidades y áreas rurales del Departamento de Santa María",
         "Manzanas del Departamento de Santa María"
     ]
-    option_escala_equipamientos = st.selectbox("Seleccionar una escala", escalas_equipamientos, key="equipa_escala_select")
+    option_escala_equipamientos = st.selectbox("Seleccionar una escala", escalas_equipamientos, key="equipamientos_escala_select")
 
-    # --- Lógica para cada opción de escala (Equipamientos) ---
+    # --- Lógica para cada opción de escala (Vivienda y Suelo) ---
     if option_escala_equipamientos == "Departamento de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_equipamientos}")
+        
+        department_vars_equipamientos = ["c1-d", "c2-d", "c3-d", "c4-d"]
+        
+        gdf_department_filtered_for_tab3 = gdf_data_departamento_consolidado_full[
+            gdf_data_departamento_consolidado_full["DEPARTAMENTO"] == "Santa María"
+        ][["DEPARTAMENTO", "geometry"] + department_vars_equipamientos].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_equipamientos["departamento"])
+            display_data_and_charts(
+                gdf_department_filtered_for_tab3,
+                category_cols=department_vars_equipamientos,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_equipamientos["departamento"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_equipa")
+        variable_map_for_display = {
+            "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+            "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+            "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+            "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+            #"c5-d":"Servicios de alumbrado, barrido y limpieza disponibles"
+        }
         
-        selected_tile_equipa = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_equipamientos"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_department_filtered_for_tab3.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_equipamientos = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_dep_equipa"
+            key="tile_select_dep_equipamientos"
         )
+        st.session_state['current_tile_selection'] = selected_tile_equipamientos 
+
         create_folium_map(
-            gdf_data_equipamientos["departamento"], # CORRECTO para la pestaña de Equipamientos
-            selected_variable,
+            gdf_map_data,
+            selected_display_name,
             9,
             ["DEPARTAMENTO", "DERECHOS"],
-            ["Departamento:", "Derechos:"],
-            selected_tile_equipa
+            ["Departamento:", f"{selected_display_name}:"]
         )
 
     elif option_escala_equipamientos == "Municipio de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_equipamientos}")
+        
+        municipio_sm_vars_equipamientos = ["c1-d", "c2-d", "c3-d", "c4-d"]
+        
+        gdf_municipio_sm_filtered_for_tab3 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "Santa María"
+        ][["MUNICIPIO", "geometry"] + municipio_sm_vars_equipamientos].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_equipamientos["municipios"], "MUNICIPIO", "Santa María")
+            display_data_and_charts(
+                gdf_municipio_sm_filtered_for_tab3,
+                category_cols=municipio_sm_vars_equipamientos,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_equipamientos["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_equipa")
+        variable_map_for_display = {
+            "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+            "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+            "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+            "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+            #"c5-d":"Servicios de alumbrado, barrido y limpieza disponibles"
+        }
         
-        filtered_gdf_municipio_sm = gdf_data_equipamientos["municipios"][gdf_data_equipamientos["municipios"]['MUNICIPIO'] == 'Santa María']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_equipamientos"
+        )
         
-        selected_tile_equipa = st.selectbox(
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sm_filtered_for_tab3.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_equipamientos = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sm_mun_equipa"
+            key="tile_select_dep_equipamientos"
         )
-        create_folium_map(
-            filtered_gdf_municipio_sm, # CORREGIDO: Ahora usa el GDF filtrado de equipamientos
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_equipa
-        )
+        st.session_state['current_tile_selection'] = selected_tile_equipamientos
 
+        create_folium_map(
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
+        )
+    
     elif option_escala_equipamientos == "Municipio de San José":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_equipamientos}")
+        
+        municipio_sj_vars_equipamientos = ["c1-d", "c2-d", "c3-d", "c4-d"]
+    
+        gdf_municipio_sj_filtered_for_tab3 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "San José"
+        ][["MUNICIPIO", "geometry"] + municipio_sj_vars_equipamientos].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_equipamientos["municipios"], "MUNICIPIO", "San José")
+            display_data_and_charts(
+                gdf_municipio_sj_filtered_for_tab3,
+                category_cols=municipio_sj_vars_equipamientos,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_equipamientos["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_equipa")
+        variable_map_for_display = {
+            "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+            "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+            "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+            "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+            #"c5-d":"Servicios de alumbrado, barrido y limpieza disponibles"
+        }
         
-        filtered_gdf_municipio_sj = gdf_data_equipamientos["municipios"][gdf_data_equipamientos["municipios"]['MUNICIPIO'] == 'San José']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_equipamientos"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sj_filtered_for_tab3.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
-        selected_tile_equipa = st.selectbox(
+        selected_tile_equipamientos = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sj_mun_equipa"
+            key="tile_select_dep_equipamientos"
         )
+        st.session_state['current_tile_selection'] = selected_tile_equipamientos 
+
         create_folium_map(
-            filtered_gdf_municipio_sj, # CORREGIDO: Ahora usa el GDF filtrado de equipamientos
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_equipa
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
         )
 
     elif option_escala_equipamientos == "Localidades y áreas rurales del Departamento de Santa María":
         st.subheader("Localidades y áreas rurales del Departamento de Santa María")
-        variables_localidades_sm = gdf_data_equipamientos["localidades"]["LOCALIDAD"].unique()
-        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_equipa")
+        localidades_disponibles = gdf_data_localidades_consolidado_full["LOCALIDAD"].unique().tolist()
+        
+        # Permitir al usuario seleccionar una localidad
+        selected_localidad = st.selectbox(
+            "Selecciona una Localidad", 
+            options=localidades_disponibles, 
+            key="localidad_select_equipamientos"
+        )
 
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        localidad_vars_equipamientos = ["c1-d", "c2-d", "c3-d", "c4-d"]
+
+        gdf_localidad_filtered_for_tab3 = gdf_data_localidades_consolidado_full[
+            gdf_data_localidades_consolidado_full["LOCALIDAD"] == selected_localidad
+        ][["LOCALIDAD", "geometry"] + localidad_vars_equipamientos].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_equipamientos["localidades"], "LOCALIDAD", localidades_sm)
+            display_data_and_charts(
+                gdf_localidad_filtered_for_tab3,
+                category_cols=localidad_vars_equipamientos,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_equipamientos["localidades"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_equipa")
-        
-        filtered_gdf_localidades_selected = gdf_data_equipamientos["localidades"][gdf_data_equipamientos["localidades"]['LOCALIDAD'] == localidades_sm]
+        variable_map_for_display = {
+            "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+            "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+            "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+            "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+            #"c5-d":"Servicios de alumbrado, barrido y limpieza disponibles"
+        }
 
-        selected_tile_equipa = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_equipamientos_localidad" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_localidad_filtered_for_tab3.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_equipamientos = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_loc_equipa"
+            key="tile_select_dep_equipamientos_localidad" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_equipamientos
+
         create_folium_map(
-            filtered_gdf_localidades_selected, # CORREGIDO: Ahora usa el GDF filtrado de equipamientos
-            selected_variable,
-            14, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_equipa
+            gdf_map_data,
+            selected_display_name,
+            12, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
 
     elif option_escala_equipamientos == "Manzanas del Departamento de Santa María":
         st.subheader("Manzanas del Departamento de Santa María")
-        variables_manzanero = gdf_data_equipamientos["manzanero"]["MUNICIPIO"].unique()
-        manzanero_municipio = st.selectbox("Seleccionar un Municipio del Departamento de Santa María", options=variables_manzanero, key="man_mun_select_equipa")
-
-        st.subheader(f"Territorialización de los indicadores de la Brújula por manzana del Municipio de {manzanero_municipio}")
-        variables = gdf_data_equipamientos["manzanero"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="man_var_select_equipa")
+        manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
         
-        filtered_gdf_manzanero_municipio = gdf_data_equipamientos["manzanero"][gdf_data_equipamientos["manzanero"]['MUNICIPIO'] == manzanero_municipio]
+        # Permitir al usuario seleccionar una localidad
+        selected_manzanero = st.selectbox(
+            "Selecciona una Localidad", 
+            options=manzanero_disponibles, 
+            key="manzanero_select_equipamientos"
+        )
 
-        selected_tile_equipa = st.selectbox(
+        manzanero_vars_equipamientos = ["c1-d", "c2-d", "c3-d", "c4-d"]
+
+        gdf_manzanero_filtered_for_tab3 = gdf_data_manzanero_consolidado_full[
+            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
+        ][["LOCALIDAD", "geometry"] + manzanero_vars_equipamientos].copy()
+
+        #with st.container():
+        #    display_data_and_charts(
+        #        gdf_manzanero_filtered_for_tab3,
+        #        category_cols=manzanero_vars_equipamientos,
+        #        value_col="DERECHOS"
+        #    )
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variable_map_for_display = {
+            "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+            "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+            "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+            "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+            #"c5-d":"Servicios de alumbrado, barrido y limpieza disponibles"
+        }
+
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_equipamientos_manzanero" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_manzanero_filtered_for_tab3.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_equipamientos = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_man_equipa"
+            key="tile_select_dep_equipamientos_manzanero" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_equipamientos
+
         create_folium_map(
-            filtered_gdf_manzanero_municipio, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
-            selected_variable,
-            12, # Zoom ajustado
-            ["MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_equipa
+            gdf_map_data,
+            selected_display_name,
+            9, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
+
 
 with tab4:
     st.header("Departamento de Santa María")
@@ -618,248 +1090,512 @@ with tab4:
         "Municipio de Santa María",
         "Municipio de San José",
         "Localidades y áreas rurales del Departamento de Santa María",
+        #"Manzanas del Departamento de Santa María"
     ]
-    option_escala_accesibilidad = st.selectbox("Seleccionar una escala", escalas_accesibilidad, key="acces_escala_select")
+    option_escala_accesibilidad = st.selectbox("Seleccionar una escala", escalas_accesibilidad, key="accesibilidad_escala_select")
 
-    # --- Lógica para cada opción de escala (Desarrollo local) ---
+    # --- Lógica para cada opción de escala (Vivienda y Suelo) ---
     if option_escala_accesibilidad == "Departamento de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_accesibilidad}")
+        
+        department_vars_accesibilidad = ["d1-d", "d5-d"]
+        
+        gdf_department_filtered_for_tab4 = gdf_data_departamento_consolidado_full[
+            gdf_data_departamento_consolidado_full["DEPARTAMENTO"] == "Santa María"
+        ][["DEPARTAMENTO", "geometry"] + department_vars_accesibilidad].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_accesibilidad["departamento"])
+            display_data_and_charts(
+                gdf_department_filtered_for_tab4,
+                category_cols=department_vars_accesibilidad,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_accesibilidad["departamento"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_acces")
+        variable_map_for_display = {
+            "d1-d":"Calzadas disponibles permitiendo movimiento vehicular",
+            #"d2-d":"Aceras disponibles permitiendo circulación peatonal y ciclística con seguridad vial, iluminadas y limpias",
+            #"d3-d":"Servicio transporte público guiado disponible a precios accesibles",
+            #"d4-d":"Servicios de colectivos, taxis y motos disponibles",
+            "d5-d":"Posibilidad de acceso de ambulancias, bomberos, policía y defensa civil"
+        }
         
-        selected_tile_acces = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_accesibilidad"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_department_filtered_for_tab4.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_accesibilidad = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_dep_acces"
+            key="tile_select_dep_accesibilidad"
         )
+        st.session_state['current_tile_selection'] = selected_tile_accesibilidad 
+
         create_folium_map(
-            gdf_data_accesibilidad["departamento"], # CORRECTO para la pestaña de desarrollo local
-            selected_variable,
+            gdf_map_data,
+            selected_display_name,
             9,
             ["DEPARTAMENTO", "DERECHOS"],
-            ["Departamento:", "Derechos:"],
-            selected_tile_acces
+            ["Departamento:", f"{selected_display_name}:"]
         )
-
+    
     elif option_escala_accesibilidad == "Municipio de Santa María":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_accesibilidad}")
+        
+        municipio_sm_vars_accesibilidad = ["d1-d", "d5-d"]
+        
+        gdf_municipio_sm_filtered_for_tab4 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "Santa María"
+        ][["MUNICIPIO", "geometry"] + municipio_sm_vars_accesibilidad].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_accesibilidad["municipios"], "MUNICIPIO", "Santa María")
+            display_data_and_charts(
+                gdf_municipio_sm_filtered_for_tab4,
+                category_cols=municipio_sm_vars_accesibilidad,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_accesibilidad["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_acces")
+        variable_map_for_display = {
+            "d1-d":"Calzadas disponibles permitiendo movimiento vehicular",
+            #"d2-d":"Aceras disponibles permitiendo circulación peatonal y ciclística con seguridad vial, iluminadas y limpias",
+            #"d3-d":"Servicio transporte público guiado disponible a precios accesibles",
+            #"d4-d":"Servicios de colectivos, taxis y motos disponibles",
+            "d5-d":"Posibilidad de acceso de ambulancias, bomberos, policía y defensa civil"
+        }
         
-        filtered_gdf_municipio_sm = gdf_data_accesibilidad["municipios"][gdf_data_accesibilidad["municipios"]['MUNICIPIO'] == 'Santa María']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_accesibilidad"
+        )
         
-        selected_tile_acces = st.selectbox(
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sm_filtered_for_tab4.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_accesibilidad = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sm_mun_acces"
+            key="tile_select_dep_accesibilidad"
         )
-        create_folium_map(
-            filtered_gdf_municipio_sm, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_acces
-        )
+        st.session_state['current_tile_selection'] = selected_tile_accesibilidad
 
+        create_folium_map(
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
+        )
+    
     elif option_escala_accesibilidad == "Municipio de San José":
         st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_accesibilidad}")
+        
+        municipio_sj_vars_accesibilidad = ["d1-d", "d5-d"]
+    
+        gdf_municipio_sj_filtered_for_tab4 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "San José"
+        ][["MUNICIPIO", "geometry"] + municipio_sj_vars_accesibilidad].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_accesibilidad["municipios"], "MUNICIPIO", "San José")
+            display_data_and_charts(
+                gdf_municipio_sj_filtered_for_tab4,
+                category_cols=municipio_sj_vars_accesibilidad,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_accesibilidad["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_acces")
+        variable_map_for_display = {
+            "d1-d":"Calzadas disponibles permitiendo movimiento vehicular",
+            #"d2-d":"Aceras disponibles permitiendo circulación peatonal y ciclística con seguridad vial, iluminadas y limpias",
+            #"d3-d":"Servicio transporte público guiado disponible a precios accesibles",
+            #"d4-d":"Servicios de colectivos, taxis y motos disponibles",
+            "d5-d":"Posibilidad de acceso de ambulancias, bomberos, policía y defensa civil"
+        }
         
-        filtered_gdf_municipio_sj = gdf_data_accesibilidad["municipios"][gdf_data_accesibilidad["municipios"]['MUNICIPIO'] == 'San José']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_accesibilidad"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sj_filtered_for_tab4.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
-        selected_tile_acces = st.selectbox(
+        selected_tile_accesibilidad = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sj_mun_acces"
+            key="tile_select_dep_accesibilidad"
         )
+        st.session_state['current_tile_selection'] = selected_tile_accesibilidad 
+
         create_folium_map(
-            filtered_gdf_municipio_sj, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_acces
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
         )
 
     elif option_escala_accesibilidad == "Localidades y áreas rurales del Departamento de Santa María":
         st.subheader("Localidades y áreas rurales del Departamento de Santa María")
-        variables_localidades_sm = gdf_data_accesibilidad["localidades"]["LOCALIDAD"].unique()
-        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_acces")
+        localidades_disponibles = gdf_data_localidades_consolidado_full["LOCALIDAD"].unique().tolist()
+        
+        # Permitir al usuario seleccionar una localidad
+        selected_localidad = st.selectbox(
+            "Selecciona una Localidad", 
+            options=localidades_disponibles, 
+            key="localidad_select_accesibilidad"
+        )
 
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        localidad_vars_accesibilidad = ["c1-d", "c2-d", "c3-d", "c4-d"]
+
+        gdf_localidad_filtered_for_tab4 = gdf_data_localidades_consolidado_full[
+            gdf_data_localidades_consolidado_full["LOCALIDAD"] == selected_localidad
+        ][["LOCALIDAD", "geometry"] + localidad_vars_accesibilidad].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_accesibilidad["localidades"], "LOCALIDAD", localidades_sm)
+            display_data_and_charts(
+                gdf_localidad_filtered_for_tab4,
+                category_cols=localidad_vars_accesibilidad,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_accesibilidad["localidades"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_acces")
-        
-        filtered_gdf_localidades_selected = gdf_data_accesibilidad["localidades"][gdf_data_accesibilidad["localidades"]['LOCALIDAD'] == localidades_sm]
+        variable_map_for_display = {
+            "c1-d":"Espacios verdes públicos disponibles y mantenidos",
+            "c2-d":"Escuelas pre-escolares, primarias y secundarias",
+            "c3-d":"Hospitales y centros de salud de atención primaria disponibles",
+            "c4-d":"Servicios seguridad policial, bomberos, templos y DC disponibles",
+            #"c5-d":"Servicios de alumbrado, barrido y limpieza disponibles"
+        }
 
-        selected_tile_acces = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_accesibilidad_localidad" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_localidad_filtered_for_tab4.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_accesibilidad = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_loc_acces"
+            key="tile_select_dep_accesibilidad_localidad" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_accesibilidad
+
         create_folium_map(
-            filtered_gdf_localidades_selected, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
-            selected_variable,
-            14, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_acces
+            gdf_map_data,
+            selected_display_name,
+            12, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
 
 with tab5:
     st.header("Departamento de Santa María")
 
-    escalas_desarrollo_local = [
+    escalas_desarrollo = [
         "Departamento de Santa María",
         "Municipio de Santa María",
         "Municipio de San José",
         "Localidades y áreas rurales del Departamento de Santa María",
         "Manzanas del Departamento de Santa María"
     ]
-    option_escala_desarrollo_local = st.selectbox("Seleccionar una escala", escalas_desarrollo_local, key="desaloca_escala_select")
+    option_escala_desarrollo = st.selectbox("Seleccionar una escala", escalas_desarrollo, key="desarrollo_escala_select")
 
-    # --- Lógica para cada opción de escala (Desarrollo local) ---
-    if option_escala_desarrollo_local == "Departamento de Santa María":
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_desarrollo_local}")
+    # --- Lógica para cada opción de escala (Vivienda y Suelo) ---
+    if option_escala_desarrollo == "Departamento de Santa María":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_desarrollo}")
+        
+        department_vars_desarrollo = ["e1-d", "e2-d", "e3-d", "e4-d"]
+        
+        gdf_department_filtered_for_tab5 = gdf_data_departamento_consolidado_full[
+            gdf_data_departamento_consolidado_full["DEPARTAMENTO"] == "Santa María"
+        ][["DEPARTAMENTO", "geometry"] + department_vars_desarrollo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_desarrollo_local["departamento"])
+            display_data_and_charts(
+                gdf_department_filtered_for_tab5,
+                category_cols=department_vars_desarrollo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_desarrollo_local["departamento"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="dep_var_select_desaloca")
+        variable_map_for_display = {
+            "e1-d":"Seguridad alimentaria disponible",
+            "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
+            "e3-d":"Capacidad de ahorro y re-inversión en mejoras de la vivienda y el barrio",
+            "e4-d":"Tolerancia y aceptación entre grupos sociales diferentes",
+            #"e5-d":"Acciones de prevención y reducción de riesgos de contaminación y desastres vigentes"
+        }
         
-        selected_tile_desaloca = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_desarrollo"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_department_filtered_for_tab5.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_desarrollo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_dep_desaloca"
+            key="tile_select_dep_desarrollo"
         )
+        st.session_state['current_tile_selection'] = selected_tile_desarrollo 
+
         create_folium_map(
-            gdf_data_desarrollo_local["departamento"], # CORRECTO para la pestaña de desarrollo local
-            selected_variable,
+            gdf_map_data,
+            selected_display_name,
             9,
             ["DEPARTAMENTO", "DERECHOS"],
-            ["Departamento:", "Derechos:"],
-            selected_tile_desaloca
+            ["Departamento:", f"{selected_display_name}:"]
         )
 
-    elif option_escala_desarrollo_local == "Municipio de Santa María":
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_desarrollo_local}")
+    elif option_escala_desarrollo == "Municipio de Santa María":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_desarrollo}")
+        
+        municipio_sm_vars_desarrollo = ["e1-d", "e2-d", "e3-d", "e4-d"]
+        
+        gdf_municipio_sm_filtered_for_tab5 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "Santa María"
+        ][["MUNICIPIO", "geometry"] + municipio_sm_vars_desarrollo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_desarrollo_local["municipios"], "MUNICIPIO", "Santa María")
+            display_data_and_charts(
+                gdf_municipio_sm_filtered_for_tab5,
+                category_cols=municipio_sm_vars_desarrollo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_desarrollo_local["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sm_mun_var_select_desaloca")
+        variable_map_for_display = {
+            "e1-d":"Seguridad alimentaria disponible",
+            "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
+            "e3-d":"Capacidad de ahorro y re-inversión en mejoras de la vivienda y el barrio",
+            "e4-d":"Tolerancia y aceptación entre grupos sociales diferentes",
+            #"e5-d":"Acciones de prevención y reducción de riesgos de contaminación y desastres vigentes"
+        }
         
-        filtered_gdf_municipio_sm = gdf_data_desarrollo_local["municipios"][gdf_data_desarrollo_local["municipios"]['MUNICIPIO'] == 'Santa María']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_desarrollo"
+        )
         
-        selected_tile_desaloca = st.selectbox(
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sm_filtered_for_tab5.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_desarrollo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sm_mun_desaloca"
+            key="tile_select_dep_desarrollo"
         )
-        create_folium_map(
-            filtered_gdf_municipio_sm, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_desaloca
-        )
+        st.session_state['current_tile_selection'] = selected_tile_desarrollo
 
-    elif option_escala_desarrollo_local == "Municipio de San José":
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_desarrollo_local}")
+        create_folium_map(
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
+        )
+    
+    elif option_escala_desarrollo == "Municipio de San José":
+        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos del {option_escala_desarrollo}")
+        
+        municipio_sj_vars_desarrollo = ["e1-d", "e2-d", "e3-d", "e4-d"]
+    
+        gdf_municipio_sj_filtered_for_tab5 = gdf_data_municipios_consolidado_full[
+            gdf_data_municipios_consolidado_full["MUNICIPIO"] == "San José"
+        ][["MUNICIPIO", "geometry"] + municipio_sj_vars_desarrollo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_desarrollo_local["municipios"], "MUNICIPIO", "San José")
+            display_data_and_charts(
+                gdf_municipio_sj_filtered_for_tab5,
+                category_cols=municipio_sj_vars_desarrollo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_desarrollo_local["municipios"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="sj_mun_var_select_desaloca")
+        variable_map_for_display = {
+            "e1-d":"Seguridad alimentaria disponible",
+            "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
+            "e3-d":"Capacidad de ahorro y re-inversión en mejoras de la vivienda y el barrio",
+            "e4-d":"Tolerancia y aceptación entre grupos sociales diferentes",
+            #"e5-d":"Acciones de prevención y reducción de riesgos de contaminación y desastres vigentes"
+        }
         
-        filtered_gdf_municipio_sj = gdf_data_desarrollo_local["municipios"][gdf_data_desarrollo_local["municipios"]['MUNICIPIO'] == 'San José']
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización", 
+            options=list(variable_map_for_display.values()), 
+            key="dep_var_select_desarrollo"
+        )
+        
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+        
+        gdf_map_data = gdf_municipio_sj_filtered_for_tab5.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
 
-        selected_tile_desaloca = st.selectbox(
+        selected_tile_desarrollo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_sj_mun_desaloca"
+            key="tile_select_dep_desarrollo"
         )
+        st.session_state['current_tile_selection'] = selected_tile_desarrollo 
+
         create_folium_map(
-            filtered_gdf_municipio_sj, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
-            selected_variable,
-            10, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Derechos:"], # Tooltip ajustado
-            selected_tile_desaloca
+            gdf_map_data,
+            selected_display_name,
+            9,
+            ["MUNICIPIO", "DERECHOS"],
+            ["Municipio:", f"{selected_display_name}:"]
         )
 
-    elif option_escala_desarrollo_local == "Localidades y áreas rurales del Departamento de Santa María":
+    elif option_escala_desarrollo == "Localidades y áreas rurales del Departamento de Santa María":
         st.subheader("Localidades y áreas rurales del Departamento de Santa María")
-        variables_localidades_sm = gdf_data_desarrollo_local["localidades"]["LOCALIDAD"].unique()
-        localidades_sm = st.selectbox("Seleccionar una localidad del Departamento de Santa María", options=variables_localidades_sm, key="loc_select_desaloca")
+        localidades_disponibles = gdf_data_localidades_consolidado_full["LOCALIDAD"].unique().tolist()
+        
+        # Permitir al usuario seleccionar una localidad
+        selected_localidad = st.selectbox(
+            "Selecciona una Localidad", 
+            options=localidades_disponibles, 
+            key="localidad_select_desarrollo"
+        )
 
-        st.subheader(f"Resultados de la Brújula según cumplimiento de derechos de la localidad de {localidades_sm}")
+        localidad_vars_desarrollo = ["e1-d", "e2-d", "e3-d", "e4-d"]
+
+        gdf_localidad_filtered_for_tab5 = gdf_data_localidades_consolidado_full[
+            gdf_data_localidades_consolidado_full["LOCALIDAD"] == selected_localidad
+        ][["LOCALIDAD", "geometry"] + localidad_vars_desarrollo].copy()
+
         with st.container():
-            display_data_and_charts(gdf_data_desarrollo_local["localidades"], "LOCALIDAD", localidades_sm)
+            display_data_and_charts(
+                gdf_localidad_filtered_for_tab5,
+                category_cols=localidad_vars_desarrollo,
+                value_col="DERECHOS"
+            )
 
         st.subheader("Territorialización de los indicadores de la Brújula")
-        variables = gdf_data_desarrollo_local["localidades"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="loc_var_select_desaloca")
-        
-        filtered_gdf_localidades_selected = gdf_data_desarrollo_local["localidades"][gdf_data_desarrollo_local["localidades"]['LOCALIDAD'] == localidades_sm]
+        variable_map_for_display = {
+            "e1-d":"Seguridad alimentaria disponible",
+            "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
+            "e3-d":"Capacidad de ahorro y re-inversión en mejoras de la vivienda y el barrio",
+            "e4-d":"Tolerancia y aceptación entre grupos sociales diferentes",
+            #"e5-d":"Acciones de prevención y reducción de riesgos de contaminación y desastres vigentes"
+        }
 
-        selected_tile_desaloca = st.selectbox(
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_desarrollo_localidad" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_localidad_filtered_for_tab5.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_desarrollo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_loc_desaloca"
+            key="tile_select_dep_desarrollo_localidad" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_desarrollo
+
         create_folium_map(
-            filtered_gdf_localidades_selected, # CORREGIDO: Ahora usa el GDF filtrado de desarrollo local
-            selected_variable,
-            14, # Zoom ajustado
-            ["DEPARTAMENTO", "MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Departamento:", "Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_desaloca
+            gdf_map_data,
+            selected_display_name,
+            12, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
 
-    elif option_escala_desarrollo_local == "Manzanas del Departamento de Santa María":
+    elif option_escala_desarrollo == "Manzanas del Departamento de Santa María":
         st.subheader("Manzanas del Departamento de Santa María")
-        variables_manzanero = gdf_data_desarrollo_local["manzanero"]["MUNICIPIO"].unique()
-        manzanero_municipio = st.selectbox("Seleccionar un Municipio del Departamento de Santa María", options=variables_manzanero, key="man_mun_select_desaloca")
-
-        st.subheader(f"Territorialización de los indicadores de la Brújula por manzana del Municipio de {manzanero_municipio}")
-        variables = gdf_data_desarrollo_local["manzanero"]["VARIABLE"].unique()
-        selected_variable = st.selectbox("Seleccionar una variable para su visualización", options=variables, key="man_var_select_desaloca")
+        manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
         
-        filtered_gdf_manzanero_municipio = gdf_data_desarrollo_local["manzanero"][gdf_data_desarrollo_local["manzanero"]['MUNICIPIO'] == manzanero_municipio]
+        # Permitir al usuario seleccionar una localidad
+        selected_manzanero = st.selectbox(
+            "Selecciona una Localidad", 
+            options=manzanero_disponibles, 
+            key="manzanero_select_desarrollo"
+        )
 
-        selected_tile_desaloca = st.selectbox(
+        manzanero_vars_desarrollo = ["e1-d", "e2-d", "e3-d", "e4-d"]
+
+        gdf_manzanero_filtered_for_tab5 = gdf_data_manzanero_consolidado_full[
+            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
+        ][["LOCALIDAD", "geometry"] + manzanero_vars_desarrollo].copy()
+
+        #with st.container():
+        #    display_data_and_charts(
+        #        gdf_manzanero_filtered_for_tab5,
+        #        category_cols=manzanero_vars_desarrollo,
+        #        value_col="DERECHOS"
+        #    )
+
+        st.subheader("Territorialización de los indicadores de la Brújula")
+        variable_map_for_display = {
+            "e1-d":"Seguridad alimentaria disponible",
+            "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
+            "e3-d":"Capacidad de ahorro y re-inversión en mejoras de la vivienda y el barrio",
+            "e4-d":"Tolerancia y aceptación entre grupos sociales diferentes",
+            #"e5-d":"Acciones de prevención y reducción de riesgos de contaminación y desastres vigentes"
+        }
+
+        selected_display_name = st.selectbox(
+            "Seleccionar una variable para su visualización",
+            options=list(variable_map_for_display.values()),
+            key="dep_var_select_desarrollo_manzanero" # Cambiado para evitar duplicación de claves
+        )
+
+        selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
+
+        gdf_map_data = gdf_manzanero_filtered_for_tab5.copy()
+        gdf_map_data["DERECHOS"] = gdf_map_data[selected_variable_column]
+        gdf_map_data["VARIABLE"] = selected_display_name
+
+        selected_tile_desarrollo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_man_desaloca"
+            key="tile_select_dep_desarrollo_manzanero" # Cambiado para evitar duplicación de claves
         )
+        st.session_state['current_tile_selection'] = selected_tile_desarrollo
+
         create_folium_map(
-            filtered_gdf_manzanero_municipio, # CORREGIDO: Ahora usa el GDF filtrado de infraestructuras
-            selected_variable,
-            12, # Zoom ajustado
-            ["MUNICIPIO", "LOCALIDAD", "DERECHOS"], # Tooltip ajustado
-            ["Municipio:", "Localidad:", "Derechos:"], # Tooltip ajustado
-            selected_tile_desaloca
+            gdf_map_data,
+            selected_display_name,
+            9, # Puedes ajustar el nivel de zoom inicial si es necesario
+            ["LOCALIDAD", "DERECHOS"],
+            ["Localidad:", f"{selected_display_name}:"]
         )
