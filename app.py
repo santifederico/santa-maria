@@ -443,30 +443,13 @@ with tab1:
         )
 
     elif option_escala_viv_suelo == "Manzanas del Departamento de Santa María":
-        st.subheader("Manzanas del Departamento de Santa María")
-        manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
-        
-        # Permitir al usuario seleccionar una localidad
-        selected_manzanero = st.selectbox(
-            "Selecciona una Localidad", 
-            options=manzanero_disponibles, 
-            key="manzanero_select_viv_suelo"
-        )
 
         manzanero_vars_viv_suelo = ["a1-d", "a2-d", "a3-d", "a4-d", "a5-d"]
 
-        gdf_manzanero_filtered_for_tab1 = gdf_data_manzanero_consolidado_full[
-            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
-        ][["LOCALIDAD", "geometry"] + manzanero_vars_viv_suelo].copy()
+        # Eliminar el filtro por localidad
+        gdf_manzanero_filtered_for_tab1 = gdf_data_manzanero_consolidado_full[["LOCALIDAD", "geometry"] + manzanero_vars_viv_suelo].copy()
 
-        #with st.container():
-        #    display_data_and_charts(
-        #        gdf_manzanero_filtered_for_tab1,
-        #        category_cols=manzanero_vars_viv_suelo,
-        #        value_col="DERECHOS"
-        #    )
-
-        st.subheader("Territorialización de los indicadores de la Brújula")
+        st.subheader("Territorialización de los indicadores de la Brújula sobre las manzanas del Departamento de Santa María")
         variable_map_for_display = {
             "a1-d": "Seguridad en la tenencia del suelo",
             "a2-d": "Sin hacinamiento en la vivienda",
@@ -478,7 +461,7 @@ with tab1:
         selected_display_name = st.selectbox(
             "Seleccionar una variable para su visualización",
             options=list(variable_map_for_display.values()),
-            key="dep_var_select_viv_suelo_manzanero" # Cambiado para evitar duplicación de claves
+            key="dep_var_select_viv_suelo_manzanero"
         )
 
         selected_variable_column = next(key for key, value in variable_map_for_display.items() if value == selected_display_name)
@@ -490,14 +473,14 @@ with tab1:
         selected_tile_viv_suelo = st.selectbox(
             "Seleccionar mapa base",
             list(TILE_OPTIONS.keys()),
-            key="tile_select_dep_viv_suelo_manzanero" # Cambiado para evitar duplicación de claves
+            key="tile_select_dep_viv_suelo_manzanero"
         )
         st.session_state['current_tile_selection'] = selected_tile_viv_suelo
 
         create_folium_map(
             gdf_map_data,
             selected_display_name,
-            9, # Puedes ajustar el nivel de zoom inicial si es necesario
+            9, # Puedes ajustar el nivel de zoom inicial si es necesario para ver todo el departamento
             ["LOCALIDAD", "DERECHOS"],
             ["Localidad:", f"{selected_display_name}:"]
         )
@@ -733,30 +716,13 @@ with tab2:
         )
 
     elif option_escala_infraestructuras == "Manzanas del Departamento de Santa María":
-        st.subheader("Manzanas del Departamento de Santa María")
         manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
         
-        # Permitir al usuario seleccionar una localidad
-        selected_manzanero = st.selectbox(
-            "Selecciona una Localidad", 
-            options=manzanero_disponibles, 
-            key="manzanero_select_infraestructuras"
-        )
-
         manzanero_vars_infraestructuras = ["b1-d", "b2-d", "b4-d", "b5-d"]
 
-        gdf_manzanero_filtered_for_tab2 = gdf_data_manzanero_consolidado_full[
-            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
-        ][["LOCALIDAD", "geometry"] + manzanero_vars_infraestructuras].copy()
+        gdf_manzanero_filtered_for_tab2 = gdf_data_manzanero_consolidado_full[["LOCALIDAD", "geometry"] + manzanero_vars_infraestructuras].copy()
 
-        #with st.container():
-        #    display_data_and_charts(
-        #        gdf_manzanero_filtered_for_tab2,
-        #        category_cols=manzanero_vars_infraestructuras,
-        #        value_col="DERECHOS"
-        #    )
-
-        st.subheader("Territorialización de los indicadores de la Brújula")
+        st.subheader("Territorialización de los indicadores de la Brújula sobre las manzanas del Departamento de Santa María")
         variable_map_for_display = {
             "b1-d":"Provisión de agua potable disponible",
             "b2-d":"Servicio sanitarios o pozos disponibles sin contaminación",
@@ -791,6 +757,7 @@ with tab2:
             ["LOCALIDAD", "DERECHOS"],
             ["Localidad:", f"{selected_display_name}:"]
         )
+
 
 with tab3:
     st.header("Departamento de Santa María")
@@ -1022,30 +989,13 @@ with tab3:
         )
 
     elif option_escala_equipamientos == "Manzanas del Departamento de Santa María":
-        st.subheader("Manzanas del Departamento de Santa María")
         manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
         
-        # Permitir al usuario seleccionar una localidad
-        selected_manzanero = st.selectbox(
-            "Selecciona una Localidad", 
-            options=manzanero_disponibles, 
-            key="manzanero_select_equipamientos"
-        )
-
         manzanero_vars_equipamientos = ["c1-d", "c2-d", "c3-d", "c4-d"]
 
-        gdf_manzanero_filtered_for_tab3 = gdf_data_manzanero_consolidado_full[
-            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
-        ][["LOCALIDAD", "geometry"] + manzanero_vars_equipamientos].copy()
+        gdf_manzanero_filtered_for_tab3 = gdf_data_manzanero_consolidado_full[["LOCALIDAD", "geometry"] + manzanero_vars_equipamientos].copy()
 
-        #with st.container():
-        #    display_data_and_charts(
-        #        gdf_manzanero_filtered_for_tab3,
-        #        category_cols=manzanero_vars_equipamientos,
-        #        value_col="DERECHOS"
-        #    )
-
-        st.subheader("Territorialización de los indicadores de la Brújula")
+        st.subheader("Territorialización de los indicadores de la Brújula sobre las manzanas del Departamento de Santa María")
         variable_map_for_display = {
             "c1-d":"Espacios verdes públicos disponibles y mantenidos",
             "c2-d":"Escuelas pre-escolares, primarias y secundarias",
@@ -1541,30 +1491,13 @@ with tab5:
         )
 
     elif option_escala_desarrollo == "Manzanas del Departamento de Santa María":
-        st.subheader("Manzanas del Departamento de Santa María")
         manzanero_disponibles = gdf_data_manzanero_consolidado_full["LOCALIDAD"].unique().tolist()
-        
-        # Permitir al usuario seleccionar una localidad
-        selected_manzanero = st.selectbox(
-            "Selecciona una Localidad", 
-            options=manzanero_disponibles, 
-            key="manzanero_select_desarrollo"
-        )
 
         manzanero_vars_desarrollo = ["e1-d", "e2-d", "e3-d", "e4-d"]
 
-        gdf_manzanero_filtered_for_tab5 = gdf_data_manzanero_consolidado_full[
-            gdf_data_manzanero_consolidado_full["LOCALIDAD"] == selected_manzanero
-        ][["LOCALIDAD", "geometry"] + manzanero_vars_desarrollo].copy()
+        gdf_manzanero_filtered_for_tab5 = gdf_data_manzanero_consolidado_full[["LOCALIDAD", "geometry"] + manzanero_vars_desarrollo].copy()
 
-        #with st.container():
-        #    display_data_and_charts(
-        #        gdf_manzanero_filtered_for_tab5,
-        #        category_cols=manzanero_vars_desarrollo,
-        #        value_col="DERECHOS"
-        #    )
-
-        st.subheader("Territorialización de los indicadores de la Brújula")
+        st.subheader("Territorialización de los indicadores de la Brújula sobre las manzanas del Departamento de Santa María")
         variable_map_for_display = {
             "e1-d":"Seguridad alimentaria disponible",
             "e2-d":"Disponibilidad de trabajo, ingresos, medios de sustento y previsión social",
