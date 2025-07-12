@@ -372,8 +372,7 @@ def create_tab_content(tab_name, gdf_data_full):
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
-    st.subheader(f"Métricas generales del {selected_escala}")
-    if selected_escala == selected_escala:
+    if selected_escala not in ("Localidades y áreas rurales del Departamento de Santa María", "Manzanas del Departamento de Santa María"):
         df_data_metricas_fil = df_data_metricas[df_data_metricas["ESCALA"] == selected_escala].copy()
         met_sup = df_data_metricas_fil.iloc[0, 1]
         met_pers = df_data_metricas_fil.iloc[0, 2]
@@ -382,19 +381,20 @@ def create_tab_content(tab_name, gdf_data_full):
         met_hog_var = df_data_metricas_fil.iloc[0, 5]
         met_viv = df_data_metricas_fil.iloc[0, 6]
         met_viv_var = df_data_metricas_fil.iloc[0, 7]
-    with st.container():
-        col1, col2, col3, col4, _ = st.columns([1, 1, 1, 1, 5])
+        st.subheader(f"Métricas generales | {selected_escala}")
+        with st.container():
+            col1, col2, col3, col4, _ = st.columns([1, 1, 1, 1, 5])
 
-        with col1:
-            st.metric(label="Superficie (km2)", value=met_sup)
-        with col2:
-            st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
-        with col3:
-            st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
-        with col4:
-            st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
-    st.caption("*Variación intercensal.")
-
+            with col1:
+                st.metric(label="Superficie (km2)", value=met_sup)
+            with col2:
+                st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
+            with col3:
+                st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
+            with col4:
+                st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
+        st.caption("*Variación intercensal.")
+    
     with st.container():
             # Define el ancho de las imágenes
             ancho_imagen = 800
