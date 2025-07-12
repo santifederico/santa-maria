@@ -3,6 +3,7 @@ import folium
 from streamlit.components.v1 import html
 import plotly.graph_objects as go
 import pandas as pd
+import openpyxl
 import geopandas as gpd
 
 st.set_page_config(layout="wide")
@@ -13,7 +14,12 @@ def load_data(path):
     """Carga los datos de un archivo GeoJSON."""
     return gpd.read_file(path)
 
+def load_metricas(path):
+    """Carga los datos de un archivo GeoJSON."""
+    return pd.read_excel(path)
+
 gdf_data_consolidado_full = load_data("data/santa-maria-consolidado.geojson")
+df_data_metricas = load_metricas("data/santa-maria-metricas.xlsx")
 
 # --- Funciones Auxiliares ---
 
@@ -229,21 +235,11 @@ TILE_OPTIONS = {
 }
 
 # --- Streamlit UI ---
-st.title("PLATAFORMA DE LA BRÚJULA")
+st.title("PLATAFORMA DE LA BRÚJULA | DEPARTAMENTO DE SANTA MARÍA")
+st.markdown("**PROYECTO DE FORMULACIÓN DE UN PLAN DE ORDENAMIENTO TERRITORIAL PARA LOS MUNICIPIOS DE SANTA MARIA Y SAN JOSE DEL DEPARTAMENTO SANTA MARIA, PROVINCIA DE CATAMARCA.**")
+st.caption("EN CONVENIO CON LA UNIVERSIDAD NACIONAL DE CATAMARCA, FACULTAD DE CIENCIAS ECONÓMICAS - CONSEJO FEDERAL DE INVERSIONES - MINISTERIO DE PLANIFICACIÓN TERRITORIAL DE CATAMARCA.")
 st.divider()
 st.markdown("**Etapa de aplicación de La Brújula**")
-with st.container():
-    ancho_imagen = 80
-    col1, col2, col3, col4, _ = st.columns([1, 1, 1, 1, 14])
-    with col1:
-        st.image("./assets/img/ins-brujula.jpg", width=ancho_imagen)
-    with col2:
-        st.image("./assets/img/ins-participlan.jpg", width=ancho_imagen)
-    with col3:
-        st.image("./assets/img/ins-posplan.jpg", width=ancho_imagen)
-    with col4:
-        st.image("./assets/img/ins-migraplan.jpg", width=ancho_imagen)
-
 st.caption("BRÚJULA | Pre-diagnóstico")
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -358,6 +354,18 @@ def create_tab_content(tab_name, gdf_data_full):
     
     opciones_escala = list(escalas_cod.keys())
     selected_escala = st.selectbox("Seleccionar una escala", opciones_escala, key=f"{tab_name}_escala_select")
+
+    # Lógica para el selectbox de localidades en las pestañas
+    selected_localidad = "Todas las localidades"
+    if selected_escala == "Localidades y áreas rurales del Departamento de Santa María":
+        opciones_localidad = gdf_data_consolidado_full[gdf_data_consolidado_full['COD'].str.startswith('LOC-')]['LOCALIDAD'].dropna().unique().tolist()
+        opciones_localidad = sorted(opciones_localidad)
+        selected_localidad = st.selectbox(
+            "Seleccionar una localidad",
+            opciones_localidad,
+            key=f"{tab_name}_localidad_select"
+)
+
     st.link_button(
         "Ver metodología de definición de escalas",
         "https://santifederico.github.io/plataforma-brujula/pages/metodologia.html", type="primary"
@@ -365,17 +373,26 @@ def create_tab_content(tab_name, gdf_data_full):
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.subheader(f"Métricas generales del {selected_escala}")
+    if selected_escala == selected_escala:
+        df_data_metricas_fil = df_data_metricas[df_data_metricas["ESCALA"] == selected_escala].copy()
+        met_sup = df_data_metricas_fil.iloc[0, 1]
+        met_pers = df_data_metricas_fil.iloc[0, 2]
+        met_pers_var = df_data_metricas_fil.iloc[0, 3]
+        met_hog = df_data_metricas_fil.iloc[0, 4]
+        met_hog_var = df_data_metricas_fil.iloc[0, 5]
+        met_viv = df_data_metricas_fil.iloc[0, 6]
+        met_viv_var = df_data_metricas_fil.iloc[0, 7]
     with st.container():
         col1, col2, col3, col4, _ = st.columns([1, 1, 1, 1, 5])
 
         with col1:
-            st.metric(label="Superficie (km2)", value="5491,89")
+            st.metric(label="Superficie (km2)", value=met_sup)
         with col2:
-            st.metric(label="Personas*", value="26822", delta="19,4 %")
+            st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
         with col3:
-            st.metric(label="Hogares*", value="8495", delta="42,01 %")
+            st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
         with col4:
-            st.metric(label="Viviendas particulares*", value="10370", delta="88,09 %")
+            st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
     st.caption("*Variación intercensal.")
 
     with st.container():
@@ -396,6 +413,10 @@ def create_tab_content(tab_name, gdf_data_full):
     
     cod_prefijo = escalas_cod[selected_escala]
     filtered_gdf = gdf_data_full[gdf_data_full['COD'].str.startswith(cod_prefijo)].copy()
+
+    # Aplicar filtro de localidad si no es "Todas las localidades"
+    if selected_localidad != "Todas las localidades":
+        filtered_gdf=filtered_gdf[filtered_gdf['LOCALIDAD']== selected_localidad].copy()
     
     if filtered_gdf.empty:
         st.warning("No se encontraron datos para la escala y el indicador seleccionados.")
@@ -441,11 +462,18 @@ def create_tab_content(tab_name, gdf_data_full):
         )
     with col_chart:
         st.markdown("Gráfico de La Brújula")
-        plot_radar_chart(totales_df, "Indicador", "Suma", radar_range=[0, 20])
+        # --- MODIFICACIÓN para ordenar el gráfico de radar en todas las pestañas ---
+        orden_deseado_general = ["Normas","Derechos","Obras públicas","Organización social"]
+        # Asegurarse de que el orden sea categórico
+        totales_df['Indicador'] = pd.Categorical(totales_df['Indicador'], categories=orden_deseado_general, ordered=True)
+        # Ordenar el DataFrame
+        totales_df_sorted = totales_df.sort_values('Indicador')
+        # Llamar a la función con el DataFrame ya ordenado
+        plot_radar_chart(totales_df_sorted, "Indicador", "Suma", radar_range=[0, 20])
 
     st.divider()
 
-    st.subheader(f"Resultados particulares de La Brújula por dimensión del {selected_escala}")
+    st.subheader(f"Resultados particulares de La Brújula por dimensión | {selected_escala}")
 
     selected_indicador = st.selectbox(
         "Seleccionar tipo de indicador",
@@ -560,7 +588,7 @@ with tab5:
 
 with tab6:
     st.subheader("BRÚJULA CONSOLIDADA")
-    st.markdown("En esta pestaña puedes ver el resultado consolidado de todas las dimensiones en una sola visualización.")
+    st.markdown("Esta pestaña aún esta en construcción.")
     
     st.subheader("Filtros de Nivel Jerárquico")
     escalas_cod_con = {
