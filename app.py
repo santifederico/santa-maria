@@ -239,8 +239,16 @@ st.title("PLATAFORMA DE LA BRÚJULA | DEPARTAMENTO DE SANTA MARÍA")
 st.markdown("**PROYECTO DE FORMULACIÓN DE UN PLAN DE ORDENAMIENTO TERRITORIAL PARA LOS MUNICIPIOS DE SANTA MARIA Y SAN JOSE DEL DEPARTAMENTO SANTA MARIA, PROVINCIA DE CATAMARCA.**")
 st.caption("EN CONVENIO CON LA UNIVERSIDAD NACIONAL DE CATAMARCA, FACULTAD DE CIENCIAS ECONÓMICAS - CONSEJO FEDERAL DE INVERSIONES - MINISTERIO DE PLANIFICACIÓN TERRITORIAL DE CATAMARCA.")
 st.divider()
-st.markdown("**Etapa de aplicación de La Brújula**")
+st.markdown("**ETAPA DE APLICACIÓN DE LA BRÚJULA**")
 st.caption("BRÚJULA | Pre-diagnóstico")
+with st.expander("Desplegar para más información sobre las etapas"):
+    st.write("Las etapas de aplicación de La Brújula se caracterizan de la siguiente manera:")
+    st.info("**Pre-diagnóstico.** Esta etapa inicial consiste en la recopilación y sistematización de información proveniente de fuentes secundarias, tales como censos, catastros, imágenes satelitales y marcos normativos vigentes. A través de la plataforma, se consolida un pre-diagnóstico automatizado que establece una línea de base territorial. Esta línea de base permite identificar patrones preliminares de ocupación del suelo, dinámicas socioeconómicas, condiciones ambientales y equipamientos existentes, en el marco de los indicadores de La Brújula. Constituye el insumo fundamental para caracterizar el modelo territorial actual y orientar las etapas subsiguientes.")
+    st.info("**Diagnóstico participativo**. A partir del pre-diagnóstico, se incorpora la dimensión cualitativa mediante instancias de participación comunitaria y consultas a actores clave del territorio. Esta etapa permite contrastar, complementar y enriquecer la información disponible, identificando percepciones, problemáticas locales y potencialidades desde una perspectiva territorialmente situada. La plataforma actúa como soporte para sistematizar y visualizar los aportes de manera integrada, facilitando una comprensión multiescalar y multisectorial.")
+    st.info("**Formulación del modelo territorial deseado**. Sobre la base del diagnóstico integrado, se construye colectivamente un modelo territorial deseado que expresa una visión estratégica de desarrollo territorial sostenible, inclusivo y equilibrado. Esta visión se traduce en lineamientos generales de ordenamiento, estructuración del territorio y criterios para la localización de usos y actividades, conocido como Participlán.")
+    st.info("**Diseño del Plan de Ordenamiento Territorial**. Se elabora el documento técnico-normativo del Plan de Ordenamiento Territorial, que define objetivos, estrategias, normativas de uso del suelo, instrumentos de gestión y mecanismos de seguimiento. Esta etapa incluye la articulación con planes sectoriales y marcos legales provinciales y municipales. La plataforma permite generar productos cartográficos, cuadros normativos y herramientas de monitoreo, garantizando la trazabilidad y transparencia del proceso.")
+    st.info("**Aprobación e implementación**. Una vez formulado el plan, se promueve su validación institucional y social mediante instancias deliberativas y procedimientos administrativos, enmarcados en el Posplán. Tras su aprobación, se inicia la implementación a través de programas, proyectos y regulaciones específicas. La plataforma continúa funcionando como sistema de información territorial actualizado, facilitando el seguimiento, evaluación y ajuste del plan a lo largo del tiempo.")
+
 st.markdown("<br>", unsafe_allow_html=True)
 
 with st.container():
@@ -364,11 +372,19 @@ def create_tab_content(tab_name, gdf_data_full):
             "Seleccionar una localidad",
             opciones_localidad,
             key=f"{tab_name}_localidad_select"
-)
+    )
+    with st.expander("Desplegar para más información sobre los tipos de escalas"):
+        st.write("Las escalas de definen de la siguiente manera:")
+        st.info("**Departamento.** El departamento constituye una unidad político-administrativa intermedia, utilizada principalmente con fines estadísticos y de organización territorial. En el marco del ordenamiento territorial, esta escala permite una visión integrada de los municipios que lo componen, facilitando el análisis de dinámicas regionales, conectividad, patrones de urbanización y distribución de recursos naturales. Es particularmente útil para articular estrategias supra-municipales y promover la coordinación interjurisdiccional.")
+        st.info("**Municipio.** El municipio representa la principal unidad de gobierno local, con competencia plena en materia de planificación y ordenamiento del territorio en su jurisdicción. Esta escala es clave para la toma de decisiones en políticas urbanas, ambientales y de desarrollo económico. Permite identificar y normar los usos del suelo, definir zonas de expansión o protección, y priorizar intervenciones según la vocación territorial. La plataforma tecnológica organiza la información del municipio de forma sistemática, facilitando el diseño de instrumentos normativos y de gestión.")
+        st.info("**Localidad.** La localidad refiere a un núcleo de población delimitado por el INDEC, que puede estar dentro de un municipio o abarcar varios. Esta escala permite focalizar el análisis en los centros urbanos o poblados rurales, identificando necesidades específicas en términos de servicios, infraestructuras, accesibilidad y cohesión social. Es especialmente relevante para detectar desigualdades intra-municipales y orientar acciones de integración socio-urbana. La plataforma permite desagregar información a nivel de localidad para profundizar el diagnóstico y la planificación.")
+        st.info("**Manzana.** La manzana constituye la unidad territorial mínima para el análisis espacial detallado, generalmente delimitada por calles. Esta escala permite estudiar con precisión la morfología urbana, los patrones de ocupación parcelaria, la densidad, el acceso a equipamientos y servicios básicos. Es particularmente útil para diseñar intervenciones puntuales, realizar evaluaciones de riesgo y monitorear transformaciones del tejido urbano. La plataforma tecnológica integra datos censales y geoespaciales a nivel de manzana, posibilitando un abordaje microterritorial de alta resolución.")
+
+
 
     st.link_button(
         "Ver metodología de definición de escalas",
-        "https://santifederico.github.io/plataforma-brujula/pages/metodologia.html", type="primary"
+        "https://santifederico.github.io/plataforma-brujula/pages/metodologia.html", type="secondary"
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -379,22 +395,61 @@ def create_tab_content(tab_name, gdf_data_full):
         met_pers_var = df_data_metricas_fil.iloc[0, 3]
         met_hog = df_data_metricas_fil.iloc[0, 4]
         met_hog_var = df_data_metricas_fil.iloc[0, 5]
+        met_hog_urb = 15
+        met_hog_urb_var = 15
         met_viv = df_data_metricas_fil.iloc[0, 6]
         met_viv_var = df_data_metricas_fil.iloc[0, 7]
+        met_viv_urb = 20
+        met_viv_urb_var = 20
         st.subheader(f"Métricas generales | {selected_escala}")
         with st.container():
-            col1, col2, col3, col4, _ = st.columns([1, 1, 1, 1, 5])
+            col1, col2, col3, col4, col5, col6,_ = st.columns([1, 1, 1, 1, 1, 2, 2])
 
             with col1:
-                st.metric(label="Superficie (km2)", value=met_sup)
+                st.metric(label="Superficie (km²)", value=met_sup)
             with col2:
                 st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
             with col3:
                 st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
             with col4:
+                st.metric(label="Hogares urbanos*", value=met_hog_urb, delta=f"{met_hog_urb_var} %")
+            with col5:
                 st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
+            with col6:
+                st.metric(label="Viviendas particulares urbanas*", value=met_viv_urb, delta=f"{met_viv_urb_var} %")
+            st.caption("*Variación intercensal.")
+
+    elif selected_escala == "Localidades y áreas rurales del Departamento de Santa María":
+        df_data_metricas_loc = df_data_metricas[df_data_metricas["ESCALA"] == selected_localidad].copy()
+        met_sup = df_data_metricas_loc.iloc[0, 1]
+        met_pers = df_data_metricas_loc.iloc[0, 2]
+        met_pers_var = df_data_metricas_loc.iloc[0, 3]
+        met_hog = df_data_metricas_loc.iloc[0, 4]
+        met_hog_var = df_data_metricas_loc.iloc[0, 5]
+        met_hog_urb = 15
+        met_hog_urb_var = 15
+        met_viv = df_data_metricas_loc.iloc[0, 6]
+        met_viv_var = df_data_metricas_loc.iloc[0, 7]
+        met_viv_urb = 20
+        met_viv_urb_var = 20
+        st.subheader(f"Métricas generales | Localidad de {selected_localidad}")
+        with st.container():
+            col1, col2, col3, col4, col5, col6,_ = st.columns([1, 1, 1, 1, 1, 2, 2])
+
+            with col1:
+                st.metric(label="Superficie (km²)", value=met_sup)
+            with col2:
+                st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
+            with col3:
+                st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
+            with col4:
+                st.metric(label="Hogares urbanos*", value=met_hog_urb, delta=f"{met_hog_urb_var} %")
+            with col5:
+                st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
+            with col6:
+                st.metric(label="Viviendas particulares urbanas*", value=met_viv_urb, delta=f"{met_viv_urb_var} %")
         st.caption("*Variación intercensal.")
-    
+
     with st.container():
             # Define el ancho de las imágenes
             ancho_imagen = 800
