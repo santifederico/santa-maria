@@ -18,7 +18,7 @@ def load_metricas(path):
     """Carga los datos de un archivo GeoJSON."""
     return pd.read_excel(path)
 
-gdf_data_consolidado_full = load_data("data/santa-maria-consolidado.geojson")
+gdf_data_consolidado_full = load_data("data/4326-santa-maria-consolidado.geojson")
 df_data_metricas = load_metricas("data/santa-maria-metricas.xlsx")
 
 # --- Funciones Auxiliares ---
@@ -240,7 +240,8 @@ st.markdown("**PROYECTO DE FORMULACIÓN DE UN PLAN DE ORDENAMIENTO TERRITORIAL P
 st.caption("EN CONVENIO CON LA UNIVERSIDAD NACIONAL DE CATAMARCA, FACULTAD DE CIENCIAS ECONÓMICAS - CONSEJO FEDERAL DE INVERSIONES - MINISTERIO DE PLANIFICACIÓN TERRITORIAL DE CATAMARCA.")
 st.divider()
 st.markdown("**ETAPA DE APLICACIÓN DE LA BRÚJULA**")
-st.caption("BRÚJULA | Pre-diagnóstico")
+st.badge("BRÚJULA | Pre-diagnóstico", icon="🧭", color="primary")
+#st.caption("BRÚJULA | Pre-diagnóstico")
 with st.expander("Desplegar para más información sobre las etapas"):
     st.write("Las etapas de aplicación de La Brújula se caracterizan de la siguiente manera:")
     st.info("**Pre-diagnóstico.** Esta etapa inicial consiste en la recopilación y sistematización de información proveniente de fuentes secundarias, tales como censos, catastros, imágenes satelitales y marcos normativos vigentes. A través de la plataforma, se consolida un pre-diagnóstico automatizado que establece una línea de base territorial. Esta línea de base permite identificar patrones preliminares de ocupación del suelo, dinámicas socioeconómicas, condiciones ambientales y equipamientos existentes, en el marco de los indicadores de La Brújula. Constituye el insumo fundamental para caracterizar el modelo territorial actual y orientar las etapas subsiguientes.")
@@ -353,7 +354,7 @@ def create_tab_content(tab_name, gdf_data_full):
     }
     
     escalas_cod = {
-        "Departamento de Santa María": "DPTO-",
+        "Departamento de Santa María": "DEPTO-",
         "Municipio de Santa María": "MUN-1",
         "Municipio de San José": "MUN-2",
         "Localidades y áreas rurales del Departamento de Santa María": "LOC-",
@@ -388,68 +389,84 @@ def create_tab_content(tab_name, gdf_data_full):
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if selected_escala not in ("Localidades y áreas rurales del Departamento de Santa María", "Manzanas del Departamento de Santa María"):
+    if selected_escala not in ("Localidades y áreas rurales del Departamento de Santa María","Manzanas del Departamento de Santa María"):
         df_data_metricas_fil = df_data_metricas[df_data_metricas["ESCALA"] == selected_escala].copy()
-        met_sup = df_data_metricas_fil.iloc[0, 1]
-        met_pers = df_data_metricas_fil.iloc[0, 2]
-        met_pers_var = df_data_metricas_fil.iloc[0, 3]
-        met_hog = df_data_metricas_fil.iloc[0, 4]
-        met_hog_var = df_data_metricas_fil.iloc[0, 5]
-        met_hog_urb = 15
-        met_hog_urb_var = 15
-        met_viv = df_data_metricas_fil.iloc[0, 6]
-        met_viv_var = df_data_metricas_fil.iloc[0, 7]
-        met_viv_urb = 20
-        met_viv_urb_var = 20
+        met_sup = df_data_metricas_fil.iloc[0, 2]
+        met_pers = df_data_metricas_fil.iloc[0, 3]
+        met_pers_var = df_data_metricas_fil.iloc[0, 4]
+        met_hog = df_data_metricas_fil.iloc[0, 5]
+        met_hog_var = df_data_metricas_fil.iloc[0, 6]
+        met_hog_urb = df_data_metricas_fil.iloc[0, 7]
+        met_hog_urb_var = df_data_metricas_fil.iloc[0, 8]
+        met_viv = df_data_metricas_fil.iloc[0, 9]
+        met_viv_var = df_data_metricas_fil.iloc[0, 10]
+        met_viv_ocu = df_data_metricas_fil.iloc[0, 11]
+        met_viv_ocu_var = df_data_metricas_fil.iloc[0, 12]
+        met_viv_urb = df_data_metricas_fil.iloc[0, 13]
+        met_viv_urb_var = df_data_metricas_fil.iloc[0, 14]
         st.subheader(f"Métricas generales | {selected_escala}")
         with st.container():
-            col1, col2, col3, col4, col5, col6,_ = st.columns([1, 1, 1, 1, 1, 2, 2])
+            col1, col2, col3, col4, col5,col6,col7 = st.columns([1, 1, 1, 1,1,1,2])
 
             with col1:
                 st.metric(label="Superficie (km²)", value=met_sup)
             with col2:
-                st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
+                st.metric(label="Personas", value=met_pers, delta=f"{met_pers_var}")
             with col3:
-                st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
+                st.metric(label="Hogares", value=met_hog, delta=f"{met_hog_var}")
             with col4:
-                st.metric(label="Hogares urbanos*", value=met_hog_urb, delta=f"{met_hog_urb_var} %")
+                st.metric(label="Hogares urbanos", value=met_hog_urb, delta=f"{met_hog_urb_var}")
             with col5:
-                st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
+                st.metric(label="Viviendas", value=met_viv, delta=f"{met_viv_var}")
             with col6:
-                st.metric(label="Viviendas particulares urbanas*", value=met_viv_urb, delta=f"{met_viv_urb_var} %")
-            st.caption("*Variación intercensal.")
+                st.metric(label="Viviendas ocupadas", value=met_viv_ocu, delta=f"{met_viv_ocu_var}")
+            with col7:
+                st.metric(label="Viviendas ocupadas urbanas", value=met_viv_urb, delta=f"{met_viv_urb_var}")
+            st.caption("Las métricas no consideran los datos de los censos para viviendas agrupadas.")
+        with st.expander("Desplegar para más información sobre las métricas generales"):
+            st.write("Notas metodológicas: El análisis se realizó a partir de los Censos 2022 y 2010, considerando únicamente viviendas particulares, dado que esta es la categoría con información desagregada a nivel de radio censal. La variación expresada corresponde a valores absolutos que indican el crecimiento o disminución en la cantidad de viviendas entre ambos relevamientos.")
+            st.info("**Superficie**. Medida a partir de las geometrías provistas por el Instituto Geográfico Nacional, tanto para la escala departamental como municipal.")
+            st.info("**Personas.** Todas las personas efectivamente presentes en el territorio censado, tanto residentes habituales como personas que están de paso (según la metodología adoptada en el operativo). Se registran con datos como edad, sexo, nivel educativo, situación laboral, etc.")
+            st.info("**Hogares.** Conjunto de personas que viven bajo un mismo techo y comparten sus gastos para la alimentación. Puede estar compuesto por una sola persona (hogar unipersonal) o por varias. Un hogar se asocia a una vivienda. Si una vivienda está compartida por más de un grupo de personas que no comparten gastos de comida, se considera que hay más de un hogar en esa vivienda.")
+            st.info("**Hogares urbanos.** Son los hogares que residen en viviendas ubicadas en áreas urbanas, particularmente en los radios censales caracterizados de esa manera. Se entiende por área urbana a localidades de 2.000 o más habitantes, según la definición censal. Es un subconjunto de los hogares totales del país.")
+            st.info("**Viviendas.** Cualquier espacio estructuralmente separado e independiente que esté destinado a alojar personas. Pueden ser viviendas particulares (casas, departamentos, ranchos, etc.) o colectivas (hospitales, geriátricos, cuarteles, etc.). Incluye viviendas ocupadas y desocupadas al momento del censo.")
+            st.info("**Viviendas ocupadas.** Son las viviendas donde al momento del censo reside al menos una persona, es decir, en las que hay uno o más hogares viviendo. Se excluyen las viviendas que están cerradas, en alquiler, en construcción o sin ocupar por otras razones.")
+            st.info("**Viviendas ocupadas urbanas.** Son las viviendas ocupadas que se encuentran en áreas urbanas (localidades de 2.000 o más habitantes). Permiten estimar características urbanas de los hogares y personas.")
 
     elif selected_escala == "Localidades y áreas rurales del Departamento de Santa María":
         df_data_metricas_loc = df_data_metricas[df_data_metricas["ESCALA"] == selected_localidad].copy()
-        met_sup = df_data_metricas_loc.iloc[0, 1]
-        met_pers = df_data_metricas_loc.iloc[0, 2]
-        met_pers_var = df_data_metricas_loc.iloc[0, 3]
-        met_hog = df_data_metricas_loc.iloc[0, 4]
-        met_hog_var = df_data_metricas_loc.iloc[0, 5]
-        met_hog_urb = 15
-        met_hog_urb_var = 15
-        met_viv = df_data_metricas_loc.iloc[0, 6]
-        met_viv_var = df_data_metricas_loc.iloc[0, 7]
-        met_viv_urb = 20
-        met_viv_urb_var = 20
+        met_sup = df_data_metricas_loc.iloc[0, 2]
+        met_pers = df_data_metricas_loc.iloc[0, 3]
+        met_pers_var = df_data_metricas_loc.iloc[0, 4]
+        met_hog = df_data_metricas_loc.iloc[0, 5]
+        met_hog_var = df_data_metricas_loc.iloc[0, 6]
+        met_viv = df_data_metricas_loc.iloc[0, 9]
+        met_viv_var = df_data_metricas_loc.iloc[0, 10]
+        met_viv_ocu = df_data_metricas_loc.iloc[0, 11]
+        met_viv_ocu_var = df_data_metricas_loc.iloc[0, 12]
         st.subheader(f"Métricas generales | Localidad de {selected_localidad}")
         with st.container():
-            col1, col2, col3, col4, col5, col6,_ = st.columns([1, 1, 1, 1, 1, 2, 2])
+            col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1,2])
 
             with col1:
                 st.metric(label="Superficie (km²)", value=met_sup)
             with col2:
-                st.metric(label="Personas*", value=met_pers, delta=f"{met_pers_var} %")
+                st.metric(label="Personas", value=met_pers, delta=f"{met_pers_var}")
             with col3:
-                st.metric(label="Hogares*", value=met_hog, delta=f"{met_hog_var} %")
+                st.metric(label="Hogares", value=met_hog, delta=f"{met_hog_var}")
             with col4:
-                st.metric(label="Hogares urbanos*", value=met_hog_urb, delta=f"{met_hog_urb_var} %")
+                st.metric(label="Viviendas", value=met_viv, delta=f"{met_viv_var}")
             with col5:
-                st.metric(label="Viviendas particulares*", value=met_viv, delta=f"{met_viv_var} %")
-            with col6:
-                st.metric(label="Viviendas particulares urbanas*", value=met_viv_urb, delta=f"{met_viv_urb_var} %")
-        st.caption("*Variación intercensal.")
-
+                st.metric(label="Viviendas ocupadas", value=met_viv_ocu, delta=f"{met_viv_ocu_var}")
+            st.caption("Las métricas no consideran los datos de los censos para viviendas agrupadas.")
+        with st.expander("Desplegar para más información sobre las métricas generales"):
+            st.write("Notas metodológicas: El análisis se realizó a partir de los Censos 2022 y 2010, considerando únicamente viviendas particulares, dado que esta es la categoría con información desagregada a nivel de radio censal. La variación expresada corresponde a valores absolutos que indican el crecimiento o disminución en la cantidad de viviendas entre ambos relevamientos.")
+            st.info("**Superficie**. Medida a partir de las geometrías de los radios censales que abarcan las localidades.")
+            st.info("**Personas.** Todas las personas efectivamente presentes en el territorio censado, tanto residentes habituales como personas que están de paso (según la metodología adoptada en el operativo). Se registran con datos como edad, sexo, nivel educativo, situación laboral, etc.")
+            st.info("**Hogares.** Conjunto de personas que viven bajo un mismo techo y comparten sus gastos para la alimentación. Puede estar compuesto por una sola persona (hogar unipersonal) o por varias. Un hogar se asocia a una vivienda. Si una vivienda está compartida por más de un grupo de personas que no comparten gastos de comida, se considera que hay más de un hogar en esa vivienda.")
+            st.info("**Viviendas.** Cualquier espacio estructuralmente separado e independiente que esté destinado a alojar personas. Pueden ser viviendas particulares (casas, departamentos, ranchos, etc.) o colectivas (hospitales, geriátricos, cuarteles, etc.). Incluye viviendas ocupadas y desocupadas al momento del censo.")
+            st.info("**Viviendas ocupadas.** Son las viviendas donde al momento del censo reside al menos una persona, es decir, en las que hay uno o más hogares viviendo. Se excluyen las viviendas que están cerradas, en alquiler, en construcción o sin ocupar por otras razones.")
+            
     with st.container():
             # Define el ancho de las imágenes
             ancho_imagen = 800
@@ -476,17 +493,17 @@ def create_tab_content(tab_name, gdf_data_full):
     if filtered_gdf.empty:
         st.warning("No se encontraron datos para la escala y el indicador seleccionados.")
         return
-
-    st.subheader(f"Resultados generales de La Brújula del {selected_escala}")
     
+    #if selected_escala not in ("Manzanas del Departamento de Santa María"):
+    st.subheader(f"Resultados generales de La Brújula del {selected_escala}")
     dimension_vars_names = dimension_vars.get(tab_name)
     
     data_for_table = {
-        "Variable": [f"d-{v}" for v in dimension_vars_names],
-        "Derechos": [filtered_gdf[f"d-{v}"].mean() for v in dimension_vars_names],
-        "Obras públicas": [filtered_gdf[f"op-{v}"].mean() for v in dimension_vars_names],
-        "Organización social": [filtered_gdf[f"os-{v}"].mean() for v in dimension_vars_names],
-        "Normas": [filtered_gdf[f"n-{v}"].mean() for v in dimension_vars_names],
+    "Variable": [f"d-{v}" for v in dimension_vars_names],
+    "Derechos": [round(filtered_gdf[f"d-{v}"].mean(), 0) for v in dimension_vars_names],
+    "Obras públicas": [round(filtered_gdf[f"op-{v}"].mean(), 0) for v in dimension_vars_names],
+    "Organización social": [round(filtered_gdf[f"os-{v}"].mean(), 0) for v in dimension_vars_names],
+    "Normas": [round(filtered_gdf[f"n-{v}"].mean(), 0) for v in dimension_vars_names],
     }
     
     df_preview = pd.DataFrame(data_for_table)
@@ -528,8 +545,8 @@ def create_tab_content(tab_name, gdf_data_full):
 
     st.divider()
 
+    
     st.subheader(f"Resultados particulares de La Brújula por dimensión | {selected_escala}")
-
     selected_indicador = st.selectbox(
         "Seleccionar tipo de indicador",
         list(indicador_prefix.keys()),
@@ -550,7 +567,7 @@ def create_tab_content(tab_name, gdf_data_full):
         st.warning("No se encontraron variables para la combinación seleccionada de escala e indicador.")
         return
     
-    df_for_charts = filtered_gdf[existing_selected_variables].mean().reset_index()
+    df_for_charts = filtered_gdf[existing_selected_variables].mean().round(0).reset_index()
     df_for_charts.columns = ['VARIABLE', 'VALOR']
     
     with st.container():
@@ -565,6 +582,9 @@ def create_tab_content(tab_name, gdf_data_full):
     st.divider()
 
     st.subheader("Conclusiones preliminares")
+    st.markdown("A partir de los resultados obtenidos mediante la aplicación de la metodología, es posible esbozar una serie de conclusiones preliminares que permiten orientar el diagnóstico y la toma de decisiones en relación con la dimensión analizada.")
+    st.markdown(f"La evaluación de las cinco variables bajo los ejes de derechos, obras públicas, organización social y normativa, ha permitido identificar tanto fortalezas como áreas críticas dentro del {selected_escala}. Estos primeros hallazgos evidencian desequilibrios en el desarrollo territorial y revelan la necesidad de intervenciones diferenciadas según las características específicas de cada variable y eje.")
+    st.markdown("Las conclusiones aquí presentadas no constituyen un cierre definitivo, sino un punto de partida para profundizar el análisis, enriquecerlo con instancias participativas y avanzar hacia propuestas integrales de planificación que promuevan un desarrollo más equitativo y sustentable.")
     st.markdown("**Seguridad en la tenencia del suelo.**")
     st.text("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
     st.markdown("**Sin hacinamiento en la vivienda.**")
