@@ -44,11 +44,16 @@ if authenticator_status == True:
         return gpd.read_file(path)
 
     def load_metricas(path):
-        """Carga los datos de un archivo GeoJSON."""
+        """Carga los datos de un archivo excel."""
+        return pd.read_excel(path)
+    
+    def load_conclusiones(path):
+        """Carga los datos de un archivo excel."""
         return pd.read_excel(path)
 
     gdf_data_consolidado_full = load_data("data/4326-santa-maria-consolidado.geojson")
     df_data_metricas = load_metricas("data/santa-maria-metricas.xlsx")
+    df_data_conclusiones = load_metricas("data/santa-maria-conclusiones.xlsx")
 
     # --- Funciones Auxiliares ---
 
@@ -264,11 +269,12 @@ if authenticator_status == True:
     }
 
     # --- Streamlit UI ---
+    st.markdown(f"Bienvenido **{name}** a la Plataforma de La Brújula.")
+    authenticator.logout("Logout","main")
+    st.markdown("<br>", unsafe_allow_html=True)
     st.title("PLATAFORMA DE LA BRÚJULA | DEPARTAMENTO DE SANTA MARÍA")
     st.markdown("**PROYECTO DE FORMULACIÓN DE UN PLAN DE ORDENAMIENTO TERRITORIAL PARA LOS MUNICIPIOS DE SANTA MARIA Y SAN JOSE DEL DEPARTAMENTO SANTA MARIA, PROVINCIA DE CATAMARCA.**")
     st.caption("EN CONVENIO CON LA UNIVERSIDAD NACIONAL DE CATAMARCA, FACULTAD DE CIENCIAS ECONÓMICAS - CONSEJO FEDERAL DE INVERSIONES - MINISTERIO DE PLANIFICACIÓN TERRITORIAL DE CATAMARCA.")
-    authenticator.logout("Logout","main")
-    st.markdown(f"Bienvenido {name}")
     st.divider()
     st.markdown("**ETAPA DE APLICACIÓN DE LA BRÚJULA**")
     st.badge("BRÚJULA | Pre-diagnóstico", icon="🧭", color="primary")
@@ -613,19 +619,46 @@ if authenticator_status == True:
         st.divider()
 
         st.subheader("Conclusiones preliminares")
-        st.markdown("A partir de los resultados obtenidos mediante la aplicación de la metodología, es posible esbozar una serie de conclusiones preliminares que permiten orientar el diagnóstico y la toma de decisiones en relación con la dimensión analizada.")
-        st.markdown(f"La evaluación de las cinco variables bajo los ejes de derechos, obras públicas, organización social y normativa, ha permitido identificar tanto fortalezas como áreas críticas dentro del {selected_escala}. Estos primeros hallazgos evidencian desequilibrios en el desarrollo territorial y revelan la necesidad de intervenciones diferenciadas según las características específicas de cada variable y eje.")
-        st.markdown("Las conclusiones aquí presentadas no constituyen un cierre definitivo, sino un punto de partida para profundizar el análisis, enriquecerlo con instancias participativas y avanzar hacia propuestas integrales de planificación que promuevan un desarrollo más equitativo y sustentable.")
-        st.markdown("**Seguridad en la tenencia del suelo.**")
-        st.text("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-        st.markdown("**Sin hacinamiento en la vivienda.**")
-        st.text("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-        st.markdown("**Vivienda construida con materiales permanentes.**")
-        st.text("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-        st.markdown("**Vivienda con baño propio.**")
-        st.text("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-        st.markdown("**Generación de oferta de vivienda y alquiler a precios accesibles.**")
-        st.text("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
+        if selected_escala not in ("Localidades y áreas rurales del Departamento de Santa María","Manzanas del Departamento de Santa María"):
+            st.markdown("A partir de los resultados obtenidos mediante la aplicación de la metodología, es posible esbozar una serie de conclusiones preliminares que permiten orientar el diagnóstico y la toma de decisiones en relación con la dimensión analizada.")
+            st.markdown(f"La evaluación de las cinco variables bajo los ejes de derechos, obras públicas, organización social y normativa, ha permitido identificar tanto fortalezas como áreas críticas dentro del {selected_escala}. Estos primeros hallazgos evidencian desequilibrios en el desarrollo territorial y revelan la necesidad de intervenciones diferenciadas según las características específicas de cada variable y eje.")
+            df_data_conclusiones_fil = df_data_conclusiones[df_data_conclusiones["ESCALA"] == selected_escala].copy()
+            var_uno = df_data_conclusiones_fil.iloc[0, 2]
+            var_dos = df_data_conclusiones_fil.iloc[0, 3]
+            var_tres = df_data_conclusiones_fil.iloc[0, 4]
+            var_cuatro = df_data_conclusiones_fil.iloc[0, 5]
+            var_cinco = df_data_conclusiones_fil.iloc[0, 6]
+            st.markdown(f"**{df_preview['Variable'].iloc[0]}.**")
+            st.write(var_uno)
+            st.markdown(f"**{df_preview['Variable'].iloc[1]}.**")
+            st.write(var_dos)
+            st.markdown(f"**{df_preview['Variable'].iloc[2]}.**")
+            st.write(var_tres)
+            st.markdown(f"**{df_preview['Variable'].iloc[3]}.**")
+            st.write(var_cuatro)
+            st.markdown(f"**{df_preview['Variable'].iloc[4]}.**")
+            st.write(var_cinco)
+
+        elif selected_escala == "Localidades y áreas rurales del Departamento de Santa María":
+            st.markdown("A partir de los resultados obtenidos mediante la aplicación de la metodología, es posible esbozar una serie de conclusiones preliminares que permiten orientar el diagnóstico y la toma de decisiones en relación con la dimensión analizada.")
+            st.markdown(f"La evaluación de las cinco variables bajo los ejes de derechos, obras públicas, organización social y normativa, ha permitido identificar tanto fortalezas como áreas críticas en las {selected_escala}. En **{selected_localidad}** particularmente, el promedio de los subsectores que lo componen evidencian desequilibrios en el desarrollo territorial y revelan la necesidad de intervenciones diferenciadas según las características específicas de cada variable y eje.")
+            df_data_conclusiones_loc = df_data_conclusiones[df_data_conclusiones["ESCALA"] == selected_localidad].copy()
+            var_uno = df_data_conclusiones_loc.iloc[0, 2]
+            var_dos = df_data_conclusiones_loc.iloc[0, 3]
+            var_tres = df_data_conclusiones_loc.iloc[0, 4]
+            var_cuatro = df_data_conclusiones_loc.iloc[0, 5]
+            var_cinco = df_data_conclusiones_loc.iloc[0, 6]
+            st.markdown(f"**{df_preview['Variable'].iloc[0]}.**")
+            st.write(var_uno)
+            st.markdown(f"**{df_preview['Variable'].iloc[1]}.**")
+            st.write(var_dos)
+            st.markdown(f"**{df_preview['Variable'].iloc[2]}.**")
+            st.write(var_tres)
+            st.markdown(f"**{df_preview['Variable'].iloc[3]}.**")
+            st.write(var_cuatro)
+            st.markdown(f"**{df_preview['Variable'].iloc[4]}.**")
+            st.write(var_cinco)
+
         st.link_button(
             "Ver hipótesis de trabajo",
             "https://santifederico.github.io/plataforma-brujula/pages/metodologia.html", type="primary"
