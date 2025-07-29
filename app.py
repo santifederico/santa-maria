@@ -174,7 +174,7 @@ if authenticator_status == True:
         variable_display_names = {
         "d-a1": "Seguridad en la tenencia del suelo", "d-a2": "Sin hacinamiento en la vivienda",
         "d-a3": "Vivienda construida con materiales permanentes", "d-a4": "Vivienda con baño propio",
-        "d-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "d-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "d-b1":"Provisión de agua potable disponible", "d-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "d-b3":"Disponibilidad de drenajes que eviten inundación", "d-b4":"Conexión de energía (electricidad y gas)",
         "d-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -190,7 +190,7 @@ if authenticator_status == True:
 
         "os-a1": "Seguridad en la tenencia del suelo", "os-a2": "Sin hacinamiento en la vivienda",
         "os-a3": "Vivienda construida con materiales permanentes", "os-a4": "Vivienda con baño propio",
-        "os-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "os-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "os-b1":"Provisión de agua potable disponible", "os-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "os-b3":"Disponibilidad de drenajes que eviten inundación", "os-b4":"Conexión de energía (electricidad y gas)",
         "os-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -206,7 +206,7 @@ if authenticator_status == True:
 
         "op-a1": "Seguridad en la tenencia del suelo", "op-a2": "Sin hacinamiento en la vivienda",
         "op-a3": "Vivienda construida con materiales permanentes", "op-a4": "Vivienda con baño propio",
-        "op-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "op-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "op-b1":"Provisión de agua potable disponible", "op-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "op-b3":"Disponibilidad de drenajes que eviten inundación", "op-b4":"Conexión de energía (electricidad y gas)",
         "op-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -222,7 +222,7 @@ if authenticator_status == True:
 
         "n-a1": "Seguridad en la tenencia del suelo", "n-a2": "Sin hacinamiento en la vivienda",
         "n-a3": "Vivienda construida con materiales permanentes", "n-a4": "Vivienda con baño propio",
-        "n-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "n-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "n-b1":"Provisión de agua potable disponible", "n-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "n-b3":"Disponibilidad de drenajes que eviten inundación", "n-b4":"Conexión de energía (electricidad y gas)",
         "n-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -316,7 +316,7 @@ if authenticator_status == True:
     variable_map_for_display = {
         "d-a1": "Seguridad en la tenencia del suelo", "d-a2": "Sin hacinamiento en la vivienda",
         "d-a3": "Vivienda construida con materiales permanentes", "d-a4": "Vivienda con baño propio",
-        "d-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "d-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "d-b1":"Provisión de agua potable disponible", "d-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "d-b3":"Disponibilidad de drenajes que eviten inundación", "d-b4":"Conexión de energía (electricidad y gas)",
         "d-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -332,7 +332,7 @@ if authenticator_status == True:
 
         "os-a1": "Seguridad en la tenencia del suelo", "os-a2": "Sin hacinamiento en la vivienda",
         "os-a3": "Vivienda construida con materiales permanentes", "os-a4": "Vivienda con baño propio",
-        "os-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "os-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "os-b1":"Provisión de agua potable disponible", "os-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "os-b3":"Disponibilidad de drenajes que eviten inundación", "os-b4":"Conexión de energía (electricidad y gas)",
         "os-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -348,7 +348,7 @@ if authenticator_status == True:
 
         "op-a1": "Seguridad en la tenencia del suelo", "op-a2": "Sin hacinamiento en la vivienda",
         "op-a3": "Vivienda construida con materiales permanentes", "op-a4": "Vivienda con baño propio",
-        "op-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "op-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "op-b1":"Provisión de agua potable disponible", "op-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "op-b3":"Disponibilidad de drenajes que eviten inundación", "op-b4":"Conexión de energía (electricidad y gas)",
         "op-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -364,7 +364,7 @@ if authenticator_status == True:
 
         "n-a1": "Seguridad en la tenencia del suelo", "n-a2": "Sin hacinamiento en la vivienda",
         "n-a3": "Vivienda construida con materiales permanentes", "n-a4": "Vivienda con baño propio",
-        "n-a5": "Generación de oferta de vivienda y alquiler a precios accesibles",
+        "n-a5": "Viviendas con estándares mínimos de habitabilidad adecuados",
         "n-b1":"Provisión de agua potable disponible", "n-b2":"Servicio sanitarios o pozos disponibles sin contaminación",
         "n-b3":"Disponibilidad de drenajes que eviten inundación", "n-b4":"Conexión de energía (electricidad y gas)",
         "n-b5":"Conexión servicios de telecomunicaciones, Internet, etc.",
@@ -714,7 +714,7 @@ if authenticator_status == True:
         # Contenido del footer
         col1, col2, col3 = st.columns([5, 10, 2])
         with col1:
-            st.markdown("**Realizado con Streamlit por Santaigo Federico |** © 2025")
+            st.markdown("**Realizado con Streamlit por Santiago Federico |** © 2025")
         with col3:
             st.markdown("[Contacto por LinkedIn](https://www.linkedin.com/in/santiago-federico/)")
 
@@ -815,6 +815,6 @@ if authenticator_status == True:
         # Contenido del footer
         col1, col2, col3 = st.columns([5, 10, 2])
         with col1:
-            st.markdown("**Realizado con Streamlit por Santaigo Federico |** © 2025")
+            st.markdown("**Realizado con Streamlit por Santiago Federico |** © 2025")
         with col3:
             st.markdown("[Contacto por LinkedIn](https://www.linkedin.com/in/santiago-federico/)")
