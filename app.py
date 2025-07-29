@@ -619,15 +619,23 @@ if authenticator_status == True:
         st.divider()
 
         st.subheader("Conclusiones preliminares")
+        columnas_de_categoria = dimension_vars.get(tab_name, [])
+        columnas_a_seleccionar = ['ESCALA'] + columnas_de_categoria
+        columnas_existentes = [col for col in columnas_a_seleccionar if col in df_data_conclusiones.columns]
+        df_data_conclusiones_sel = df_data_conclusiones[columnas_existentes]     
         if selected_escala not in ("Localidades y áreas rurales del Departamento de Santa María","Manzanas del Departamento de Santa María"):
             st.markdown("A partir de los resultados obtenidos mediante la aplicación de la metodología, es posible esbozar una serie de conclusiones preliminares que permiten orientar el diagnóstico y la toma de decisiones en relación con la dimensión analizada.")
             st.markdown(f"La evaluación de las cinco variables bajo los ejes de derechos, obras públicas, organización social y normativa, ha permitido identificar tanto fortalezas como áreas críticas dentro del {selected_escala}. Estos primeros hallazgos evidencian desequilibrios en el desarrollo territorial y revelan la necesidad de intervenciones diferenciadas según las características específicas de cada variable y eje.")
-            df_data_conclusiones_fil = df_data_conclusiones[df_data_conclusiones["ESCALA"] == selected_escala].copy()
-            var_uno = df_data_conclusiones_fil.iloc[0, 2]
-            var_dos = df_data_conclusiones_fil.iloc[0, 3]
-            var_tres = df_data_conclusiones_fil.iloc[0, 4]
-            var_cuatro = df_data_conclusiones_fil.iloc[0, 5]
-            var_cinco = df_data_conclusiones_fil.iloc[0, 6]
+            #columnas_de_categoria = dimension_vars.get(tab_name, [])
+            #columnas_a_seleccionar = ['ESCALA'] + columnas_de_categoria
+            #columnas_existentes = [col for col in columnas_a_seleccionar if col in df_data_conclusiones.columns]
+            #df_data_conclusiones_sel = df_data_conclusiones[columnas_existentes]
+            df_data_conclusiones_fil = df_data_conclusiones_sel[df_data_conclusiones_sel["ESCALA"] == selected_escala].copy()
+            var_uno = df_data_conclusiones_fil.iloc[0, 1]
+            var_dos = df_data_conclusiones_fil.iloc[0, 2]
+            var_tres = df_data_conclusiones_fil.iloc[0, 3]
+            var_cuatro = df_data_conclusiones_fil.iloc[0, 4]
+            var_cinco = df_data_conclusiones_fil.iloc[0, 5]
             st.markdown(f"**{df_preview['Variable'].iloc[0]}.**")
             st.write(var_uno)
             st.markdown(f"**{df_preview['Variable'].iloc[1]}.**")
@@ -642,12 +650,12 @@ if authenticator_status == True:
         elif selected_escala == "Localidades y áreas rurales del Departamento de Santa María":
             st.markdown("A partir de los resultados obtenidos mediante la aplicación de la metodología, es posible esbozar una serie de conclusiones preliminares que permiten orientar el diagnóstico y la toma de decisiones en relación con la dimensión analizada.")
             st.markdown(f"La evaluación de las cinco variables bajo los ejes de derechos, obras públicas, organización social y normativa, ha permitido identificar tanto fortalezas como áreas críticas en las {selected_escala}. En **{selected_localidad}** particularmente, el promedio de los subsectores que lo componen evidencian desequilibrios en el desarrollo territorial y revelan la necesidad de intervenciones diferenciadas según las características específicas de cada variable y eje.")
-            df_data_conclusiones_loc = df_data_conclusiones[df_data_conclusiones["ESCALA"] == selected_localidad].copy()
-            var_uno = df_data_conclusiones_loc.iloc[0, 2]
-            var_dos = df_data_conclusiones_loc.iloc[0, 3]
-            var_tres = df_data_conclusiones_loc.iloc[0, 4]
-            var_cuatro = df_data_conclusiones_loc.iloc[0, 5]
-            var_cinco = df_data_conclusiones_loc.iloc[0, 6]
+            df_data_conclusiones_loc = df_data_conclusiones_sel[df_data_conclusiones_sel["ESCALA"] == selected_localidad].copy()
+            var_uno = df_data_conclusiones_loc.iloc[0, 1]
+            var_dos = df_data_conclusiones_loc.iloc[0, 2]
+            var_tres = df_data_conclusiones_loc.iloc[0, 3]
+            var_cuatro = df_data_conclusiones_loc.iloc[0, 4]
+            var_cinco = df_data_conclusiones_loc.iloc[0, 5]
             st.markdown(f"**{df_preview['Variable'].iloc[0]}.**")
             st.write(var_uno)
             st.markdown(f"**{df_preview['Variable'].iloc[1]}.**")
